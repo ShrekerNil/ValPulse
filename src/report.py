@@ -163,7 +163,7 @@ def render(records: list, charts: dict, out_dir: Path, report_date: str,
 <li>本报告仅为数据整理，不构成投资建议。</li>
 </ul>
 </div>
-<footer>ValPulse 自动生成 · <a href="./index.html">最新周报</a> · <a href="../archive.html">历史归档</a></footer>
+<footer>ValPulse 自动生成 · <a href="../index.html">最新周报</a> · <a href="../archive.html">历史归档</a></footer>
 </div>
 </body>
 </html>"""

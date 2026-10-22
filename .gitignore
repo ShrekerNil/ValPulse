@@ -4,5 +4,3 @@ __pycache__/
 .probe_*
 .env
 data/raw/
-data/snapshots/*.json
-!data/snapshots/.gitkeep
