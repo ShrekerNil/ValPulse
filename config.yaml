@@ -1,0 +1,72 @@
+# ValPulse 周度指数估值系统配置
+
+percentile:
+  window_years: 10          # 近10年分位窗口
+  bands: [20, 70, 90]       # 分级阈值：<20 低估，20-70 合理，70-90 偏高，>90 高估
+  min_samples: 30           # 窗口内最少样本数，不足则标注"数据不足"
+
+fetch:
+  interval_seconds: 8       # 乐咕接口请求间隔（该站限流敏感，勿调小）
+  csrf_refresh_seconds: 100 # CSRF 令牌刷新间隔
+  max_retries: 3            # 单接口失败重试次数
+  backoff_seconds: [20, 45, 90]  # 重试退避
+
+# A股指数：乐咕源（等权口径 PE-TTM / PB），历史约2005年至今
+indexes:
+  - code: "000300.SH"
+    name: "沪深300"
+    category: "宽基"
+  - code: "000905.SH"
+    name: "中证500"
+    category: "宽基"
+  - code: "000852.SH"
+    name: "中证1000"
+    category: "宽基"
+  - code: "000016.SH"
+    name: "上证50"
+    category: "宽基"
+  - code: "399006.SZ"
+    name: "创业板指"
+    category: "宽基"
+  - code: "000688.SH"
+    name: "科创50"
+    category: "宽基"
+  - code: "000932.SH"
+    name: "中证主要消费"
+    category: "行业"
+  - code: "000933.SH"
+    name: "中证医药卫生"
+    category: "行业"
+  - code: "399986.SZ"
+    name: "中证银行"
+    category: "行业"
+  - code: "000992.SH"
+    name: "全指金融"
+    category: "行业"
+  - code: "000922.CSI"
+    name: "中证红利"
+    category: "策略"
+  - code: "000015.SH"
+    name: "上证红利"
+    category: "策略"
+
+# 跨境指数
+cross_border:
+  - code: "SPX"
+    name: "标普500"
+    category: "宽基"
+    source: "multpl"        # 月频 PE（multpl.com），无 PB
+  - code: "HSTECH"
+    name: "恒生科技"
+    category: "宽基"
+    source: "legulegu_hsi"  # 月频 PE（乐咕恒生专题页，数据源恒生指数公司），无 PB
+
+# 走势图展示的重点指数（取 indexes 中的 code）
+chart_focus:
+  - "000300.SH"
+  - "000905.SH"
+  - "399006.SZ"
+  - "000922.CSI"
+
+push:
+  pushplus_template: "markdown"
