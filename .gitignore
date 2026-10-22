@@ -4,3 +4,4 @@ __pycache__/
 .probe_*
 .env
 data/raw/
+.workbuddy/
