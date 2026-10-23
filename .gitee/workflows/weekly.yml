@@ -1,0 +1,42 @@
+# Gitee Go 流水线：每周六 08:00（北京时间）抓取估值 -> 算分位 -> 出报告 -> 推送 -> 部署 Cloudflare Pages
+# 注意：Gitee Go 的 cron 为 5 位「分 时 日 月 周」，周日=1、周六=7；日与周不能同时用 *，故日用 ? 占位
+version: '1.0'
+name: weekly-valuation
+displayName: 指数估值周报
+
+triggers:
+  schedule:
+    - cron: '0 8 ? * 7'   # 每周六 08:00（gitee.com 实例时区为北京时间 UTC+8）
+
+stages:
+  - stage: weekly
+    displayName: 周报生成与部署
+    steps:
+      - step: run
+        name: weekly-pipeline
+        displayName: 抓取计算推送部署
+        run: |
+          set -e
+          echo "== Python 环境 =="
+          python3 --version
+          echo "== 安装依赖（清华源加速） =="
+          pip3 install -r requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple
+          echo "== 安装中文字体 =="
+          sudo apt-get update -qq
+          sudo apt-get install -y fonts-noto-cjk
+          sudo fc-cache -fv > /dev/null
+          echo "== 运行估值流水线 =="
+          python3 -m src.pipeline
+          echo "== 提交快照回 main（供下周环比） =="
+          git config user.name "gitee-go[bot]"
+          git config user.email "gitee-go[bot]@users.noreply.gitee.com"
+          git add data/snapshots/
+          if git diff --staged --quiet; then
+            echo "快照无变化"
+          else
+            git commit -m "chore: 估值快照 $(date +%F)"
+            git push "$GITEE_PUSH_URL" HEAD:main
+          fi
+          echo "== 部署到 Cloudflare Pages =="
+          npm config set registry https://registry.npmmirror.com
+          npx wrangler pages deploy reports --project-name=valpulse --branch=main

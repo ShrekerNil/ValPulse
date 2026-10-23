@@ -23,36 +23,45 @@
 
 口径说明：A 股 PE/PB 采用与中证官方整体法一致的加权口径（已交叉验证，差异 <5%）。
 
-## 部署（GitHub Actions + Pages，全免费）
+## 部署（Gitee Go + Cloudflare Pages，全免费）
 
-### 1. 创建仓库并推送代码
+整体链路：Gitee Go 每周六 08:00 定时运行（国内 runner，网速快）→ 抓取计算生成报告 → PushPlus 推送微信 → wrangler 直传部署到 Cloudflare Pages（自动更新，无需手动）。
+
+### 1. 创建 Gitee 仓库并推送
 
 ```bash
 cd ValPulse
-git add .
-git commit -m "init valpulse"
-git branch -M main
-git remote add origin https://github.com/<你的用户名>/<仓库名>.git
+git remote add origin https://gitee.com/<你的用户名>/<仓库名>.git
 git push -u origin main
 ```
 
-### 2. 配置 PushPlus
+### 2. 配置 Cloudflare Pages
 
-1. 打开 https://www.pushplus.plus/ ，微信扫码登录，复制你的 token
-2. 仓库页面 → Settings → Secrets and variables → Actions → New repository secret
-3. Name 填 `PUSHPLUS_TOKEN`，Value 填 token，保存
+1. 注册/登录 https://dash.cloudflare.com （可用微信/ GitHub 账号）
+2. 右侧菜单 → Compute & AI → Workers & Pages → Create → Pages → Direct Upload → 项目名填 `valpulse`（与流水线一致）
+3. 右上角头像 → My Profile → API Tokens → Create Token → Custom token：权限选 Account / Cloudflare Pages / Edit，创建后复制 token
+4. 同一页面左侧能看到 Account ID，复制
 
-> 免费额度 200 条/天，个人使用足够。未配置 token 时流水线照常运行，仅跳过推送。
+### 3. 配置 Gitee 流水线变量（密文）
 
-### 3. 开启 GitHub Pages
+Gitee 仓库页面 → 管理 → 流水线变量 → 新建，以下 4 个**全部勾选"密文"**：
 
-仓库页面 → Settings → Pages → Source 选择 `gh-pages` 分支 → Save
+| 变量名 | 值 |
+| --- | --- |
+| `PUSHPLUS_TOKEN` | pushplus.plus 扫码登录后复制的 token（免费 200 条/天） |
+| `CLOUDFLARE_API_TOKEN` | 上一步创建的 Pages Edit token |
+| `CLOUDFLARE_ACCOUNT_ID` | Cloudflare Account ID |
+| `GITEE_PUSH_URL` | `https://<用户名>:<私人令牌>@gitee.com/<用户名>/<仓库名>.git` |
 
-几分钟后访问 `https://<你的用户名>.github.io/<仓库名>/` 即可看到周报。
+> `GITEE_PUSH_URL` 里的私人令牌：Gitee → 设置 → 私人令牌 → 生成新令牌，勾选 `projects` 权限。它用于流水线把每期数据快照推回仓库（下周环比要用）。未配置时流水线仍能跑，仅丢失环比功能。
 
-### 4. 定时任务
+### 4. 开启并测试流水线
 
-工作流已配置每周六 08:00（北京时间）自动运行。也可以在 Actions 页面点击 "Run workflow" 手动触发。
+Gitee 仓库页面 → 流水线（顶部导航）→ 选中 `指数估值周报` → 手动执行一次。全流程约 4-6 分钟（乐咕限速是主要耗时）。
+
+执行成功后，Cloudflare Pages 项目页面的 `valpulse.pages.dev` 即为周报地址，国内访问速度中等偏好。之后每周六 08:00 自动运行，无需任何人工操作。
+
+> 若 Gitee Go 的 YAML 报 schema 错误（Gitee 版本迭代可能导致），用网页可视化编辑器新建流水线：选一个 Shell 步骤，把 `.gitee/workflows/weekly.yml` 中 `run:` 后的命令原样粘入即可，功能等价。
 
 ## 本地运行
 
@@ -75,9 +84,9 @@ src/
   report.py               # HTML 周报与归档页
   push.py                 # PushPlus 推送
   pipeline.py             # 主流程
-data/snapshots/           # 每期快照（环比与审计）
-reports/                  # 生成的周报（Pages 托管）
-.github/workflows/        # 定时任务
+data/snapshots/           # 每期快照（环比与审计，由流水线自动回推）
+reports/                  # 生成的周报（本地查看用，不入库；线上由 Cloudflare Pages 托管）
+.gitee/workflows/         # Gitee Go 定时流水线
 ```
 
 ## 调整指数清单
