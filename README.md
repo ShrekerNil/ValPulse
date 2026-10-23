@@ -8,7 +8,7 @@
 - **分位计算**：近 10 年窗口历史分位，剔除亏损期（PE 为负）样本
 - **四级分级**：<20% 低估 / 20-70% 合理 / 70-90% 偏高 / >90% 高估
 - **周报内容**：估值总表（含环比）、分位总览条形图、重点指数估值走势图
-- **推送**：PushPlus 推送到微信（Markdown 摘要 + 完整报告链接）
+- **推送**：QQ 邮箱 SMTP 发送 HTML 邮件（估值表格 + 低估/高估名单 + 完整报告链接）
 - **配色**：涨红跌绿（A 股惯例）；估值分位绿=低估、红=高估
 
 ## 数据源（全部免费）
@@ -35,13 +35,17 @@ git push -u origin main
 
 > 仓库公开可享无限 Actions 分钟；私有仓库每月 2000 分钟也远够用（本系统每周约 5 分钟）。
 
-### 2. 配置 PushPlus
+### 2. 配置 QQ 邮箱推送
 
-1. 打开 https://www.pushplus.plus/ ，微信扫码登录，复制你的 token
-2. 仓库页面 → Settings → Secrets and variables → Actions → New repository secret
-3. Name 填 `PUSHPLUS_TOKEN`，Value 填 token，保存
+1. QQ 邮箱 → 设置 → 账户 → 开启 `POP3/SMTP` 服务 → 按提示短信验证后获得 **16 位授权码**（不是登录密码）
+2. 仓库页面 → Settings → Secrets and variables → Actions → New repository secret，新建两个 secret：
 
-> 免费额度 200 条/天，个人使用足够。未配置 token 时流水线照常运行，仅跳过推送。
+| Name | Value |
+| --- | --- |
+| `MAIL_USER` | 发件 QQ 邮箱地址，如 `12345@qq.com` |
+| `MAIL_PASS` | 上一步获得的 16 位授权码 |
+
+> `MAIL_TO`（收件地址）可不配，默认发给自己。未配置 `MAIL_USER`/`MAIL_PASS` 时流水线照常运行，仅跳过邮件推送。
 
 ### 3. 开启 GitHub Pages
 
@@ -61,7 +65,7 @@ python -m src.pipeline
 ```
 
 报告生成在 `reports/<日期>/index.html`，最新报告在 `reports/index.html`。
-本地推送需设置环境变量 `PUSHPLUS_TOKEN`。
+本地推送需设置环境变量 `MAIL_USER` 和 `MAIL_PASS`（授权码）。
 
 ## 目录结构
 
@@ -72,7 +76,7 @@ src/
   percentile.py           # 近10年分位计算与分级
   charts.py               # matplotlib 图表
   report.py               # HTML 周报与归档页
-  push.py                 # PushPlus 推送
+  push.py                 # QQ 邮箱 SMTP 推送
   pipeline.py             # 主流程
 data/snapshots/           # 每期快照（环比与审计，由 Actions 自动回推）
 reports/                  # 生成的周报（Pages 托管，Actions 自动部署）
@@ -93,4 +97,5 @@ reports/                  # 生成的周报（Pages 托管，Actions 自动部�
 
 - **乐咕限流**：该站对频率敏感，已内置 8 秒请求间隔 + 指数退避重试。请勿调小 `interval_seconds`。
 - **图表中文乱码**：工作流已安装 Noto CJK 字体；本地运行需系统有中文字体（微软雅黑/思源黑体）。
-- **周报链接**：PushPlus 的 Markdown 链接需在 PushPlus 公众号/客户端内打开；完整报告建议直接访问 Pages 地址。
+- **收不到邮件**：先确认授权码正确（16 位，非 QQ 密码）；QQ 邮箱的 SMTP 服务必须处于开启状态；邮件可能进了垃圾箱，加白名单即可。
+- **周报链接**：邮件内"查看完整周报"链接指向 Pages 地址，国内访问慢的话本地开代理即可。

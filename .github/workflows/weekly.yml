@@ -31,7 +31,10 @@ jobs:
 
       - name: 运行估值流水线
         env:
-          PUSHPLUS_TOKEN: ${{ secrets.PUSHPLUS_TOKEN }}
+          MAIL_USER: ${{ secrets.MAIL_USER }}
+          MAIL_PASS: ${{ secrets.MAIL_PASS }}
+          MAIL_TO: ${{ secrets.MAIL_TO }}
+          REPORT_URL: https://shrekernil.github.io/ValPulse/
         run: python -m src.pipeline
 
       - name: 检查报告产物

@@ -2,6 +2,7 @@
 """ValPulse 主流程：抓取 -> 分位 -> 图表 -> 报告 -> 推送"""
 import json
 import logging
+import os
 import shutil
 import sys
 from datetime import date
@@ -216,9 +217,10 @@ def run() -> int:
         json.dumps(snapshot, ensure_ascii=False, indent=1), encoding="utf-8")
 
     title = f"指数估值周报 {report_date}"
-    content = build_summary(records, None, report_date)
+    content = build_summary(records, os.environ.get("REPORT_URL") or None, report_date)
     if failed:
-        content += f"\n\n> 注意：{len(failed)} 个指数数据抓取失败：{'、'.join(failed)}"
+        content += (f'<p style="color:#c62828">注意：{len(failed)} 个指数'
+                    f"抓取失败：{'、'.join(failed)}</p>")
     push_summary(title, content)
     return 0
 
