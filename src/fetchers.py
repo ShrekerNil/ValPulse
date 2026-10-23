@@ -3,7 +3,7 @@
 import logging
 import re
 import time
-from datetime import date, datetime, timedelta
+from datetime import date, datetime
 
 import requests
 from bs4 import BeautifulSoup
@@ -107,14 +107,16 @@ class LeguleguClient:
         return self.get_index_data("hsidata", index_code)
 
 
-def fetch_csi_pe(index_code: str, start: str = "20160101") -> list:
+def fetch_csi_pe(index_code: str, window_years: int = 10) -> list:
     """中证指数官网每日市盈率（整体法），作为 A 股 PE 的兜底与交叉校验"""
     code = index_code.split(".")[0]
-    end = date.today().strftime("%Y%m%d")
+    start = date.today().replace(year=date.today().year - window_years)
+    end = date.today()
     try:
         r = requests.get(
             "https://www.csindex.com.cn/csindex-home/perf/index-perf",
-            params={"indexCode": code, "startDate": start, "endDate": end},
+            params={"indexCode": code, "startDate": start.strftime("%Y%m%d"),
+                    "endDate": end.strftime("%Y%m%d")},
             headers=BASE_HEADERS, timeout=30)
         j = r.json()
         rows = j.get("data") or []

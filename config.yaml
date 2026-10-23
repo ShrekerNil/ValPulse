@@ -67,6 +67,3 @@ chart_focus:
   - "000905.SH"
   - "399006.SZ"
   - "000922.CSI"
-
-push:
-  pushplus_template: "markdown"

@@ -35,6 +35,7 @@ jobs:
           MAIL_PASS: ${{ secrets.MAIL_PASS }}
           MAIL_TO: ${{ secrets.MAIL_TO }}
           REPORT_URL: https://shrekernil.github.io/ValPulse/
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: python -m src.pipeline
 
       - name: 检查报告产物

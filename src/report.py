@@ -5,6 +5,8 @@ import logging
 from datetime import date
 from pathlib import Path
 
+from .config import BAND_LABELS
+
 log = logging.getLogger("valpulse.report")
 
 BAND_CLASS = {
@@ -64,13 +66,7 @@ def _chg_cell(v):
 
 
 def _band_cell(band):
-    return f'<td><span class="band {BAND_CLASS.get(band, "band-unknown")}">{BAND_LABELS_CN[band]}</span></td>'
-
-
-BAND_LABELS_CN = {
-    "undervalued": "低估", "fair": "合理", "high": "偏高",
-    "over": "高估", "unknown": "数据不足",
-}
+    return f'<td><span class="band {BAND_CLASS.get(band, "band-unknown")}">{BAND_LABELS[band]}</span></td>'
 
 
 def render(records: list, charts: dict, out_dir: Path, report_date: str,
@@ -92,7 +88,7 @@ def render(records: list, charts: dict, out_dir: Path, report_date: str,
         last_cat = None
         for r in sorted(items, key=lambda x: (order.get(x["category"], 9), x["name"])):
             if r["category"] != last_cat:
-                html_rows.append(f'<tr class="cat"><td colspan="7">{r["category"]}</td></tr>')
+                html_rows.append(f'<tr class="cat"><td colspan="8">{r["category"]}</td></tr>')
                 last_cat = r["category"]
             wow = ""
             prev_rec = (prev or {}).get(r["code"], {})
@@ -150,7 +146,7 @@ def render(records: list, charts: dict, out_dir: Path, report_date: str,
 <thead><tr><th>指数</th><th>PE</th><th>PE分位</th><th>状态</th><th>PB</th><th>PB分位</th><th>状态</th><th>日涨跌</th></tr></thead>
 <tbody>
 {table_rows(cn)}
-<tr class="cat"><td colspan="7">跨境（月频数据）</td></tr>
+<tr class="cat"><td colspan="8">跨境（月频数据）</td></tr>
 {table_rows(cross)}
 </tbody>
 </table></figure>
@@ -181,5 +177,6 @@ def render_archive(report_root: Path, items: list):
 <title>估值周报归档</title><style>{CSS}</style></head>
 <body><div class="wrap"><header><h1>估值周报归档</h1>
 <div class="sub">ValPulse 每周自动生成</div></header>
-<ul style="line-height:2">{rows}</ul></div></body></html>"""
+<ul style="line-height:2">{rows}</ul>
+<p><a href="./index.html">返回最新周报</a></p></div></body></html>"""
     (report_root / "archive.html").write_text(page, encoding="utf-8")

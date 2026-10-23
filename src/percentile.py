@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """分位计算：近10年窗口、负值剔除、四级分级"""
 import logging
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 
 log = logging.getLogger("valpulse.percentile")
 
@@ -12,7 +12,6 @@ def _to_date(s: str) -> date:
     s = str(s)
     for fmt in ("%Y-%m-%d", "%Y%m%d"):
         try:
-            from datetime import datetime
             return datetime.strptime(s, fmt).date()
         except ValueError:
             continue

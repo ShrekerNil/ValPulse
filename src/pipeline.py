@@ -56,7 +56,8 @@ def fetch_all(cfg: dict) -> tuple:
                 entry["pe"] = lg.fetch_pe(code)
                 entry["pb"] = lg.fetch_pb(code)
                 if not entry["pe"]:
-                    csi = fetchers.fetch_csi_pe(code)
+                    window = cfg.get("percentile", {}).get("window_years", 10)
+                    csi = fetchers.fetch_csi_pe(code, window)
                     if csi:
                         entry["pe"] = csi
                         entry["pe_fallback"] = "csi"
@@ -153,7 +154,7 @@ def load_previous() -> dict:
     return {}
 
 
-def run() -> int:
+def _run() -> int:
     cfg = load_config()
     charts_mod.setup_font()
     today = date.today()
@@ -223,6 +224,22 @@ def run() -> int:
                     f"抓取失败：{'、'.join(failed)}</p>")
     push_summary(title, content)
     return 0
+
+
+def run() -> int:
+    """入口：整体失败时发告警邮件（Actions 环境附运行日志链接）"""
+    try:
+        return _run()
+    except Exception:
+        log.exception("流水线整体失败")
+        try:
+            run_url = os.environ.get("RUN_URL")
+            detail = f'<p><a href="{run_url}">查看运行日志</a></p>' if run_url else ""
+            push_summary(f"ValPulse 运行失败 {date.today().isoformat()}",
+                         f"<p>本周流水线执行失败，请检查 GitHub Actions 日志。</p>{detail}")
+        except Exception:
+            log.exception("告警邮件发送失败")
+        return 1
 
 
 if __name__ == "__main__":

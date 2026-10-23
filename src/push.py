@@ -12,6 +12,7 @@ import os
 import smtplib
 from email.header import Header
 from email.mime.text import MIMEText
+from email.utils import formataddr
 
 log = logging.getLogger("valpulse.push")
 
@@ -86,7 +87,7 @@ def build_summary(records: list, report_url: str | None, report_date: str) -> st
     )
 
 
-def push_summary(title: str, content: str, token: str | None = None) -> bool:
+def push_summary(title: str, content: str) -> bool:
     """通过 QQ 邮箱 SMTP 发送 HTML 邮件；未配置账号时跳过并告警"""
     user = os.environ.get("MAIL_USER")
     passwd = os.environ.get("MAIL_PASS")
@@ -96,7 +97,7 @@ def push_summary(title: str, content: str, token: str | None = None) -> bool:
         return False
     msg = MIMEText(content, "html", "utf-8")
     msg["Subject"] = Header(title, "utf-8")
-    msg["From"] = user
+    msg["From"] = formataddr(("ValPulse", user))
     msg["To"] = to
     try:
         with smtplib.SMTP_SSL(SMTP_HOST, SMTP_PORT, timeout=30) as smtp:
