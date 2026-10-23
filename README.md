@@ -10,7 +10,7 @@
 - **周报内容**：估值总表（含环比）、分位总览条形图、重点指数估值走势图
 - **推送**：QQ 邮箱 SMTP 发送 HTML 邮件（估值表格 + 低估/高估名单 + 完整报告链接）
 - **失败告警**：流水线整体崩溃时自动发送告警邮件（附 Actions 日志链接），不会静默失败
-- **配色**：涨红跌绿（A 股惯例）；估值分位绿=低估、红=高估
+- **配色**：涨红跌绿（A 股惯例）；估值分位：绿=低估、红=高估
 
 ## 数据源（全部免费）
 
@@ -26,17 +26,17 @@
 
 ## 部署（GitHub Actions + Pages，全免费）
 
-### 1. 创建仓库并推送代码
+### 创建仓库并推送代码
 
 ```bash
-cd ValPulse
+cd D:\Repos\QLProjects\ValPulse
 git remote add origin https://github.com/<你的用户名>/<仓库名>.git
 git push -u origin main
 ```
 
 > 仓库公开可享无限 Actions 分钟；私有仓库每月 2000 分钟也远够用（本系统每周约 5 分钟）。
 
-### 2. 配置 QQ 邮箱推送
+### 配置 QQ 邮箱推送
 
 1. QQ 邮箱 → 设置 → 账户 → 开启 `POP3/SMTP` 服务 → 按提示短信验证后获得 **16 位授权码**（不是登录密码）
 2. 仓库页面 → Settings → Secrets and variables → Actions → New repository secret，新建两个 secret：
@@ -48,13 +48,13 @@ git push -u origin main
 
 > `MAIL_TO`（收件地址）可不配，默认发给自己。未配置 `MAIL_USER`/`MAIL_PASS` 时流水线照常运行，仅跳过邮件推送。
 
-### 3. 开启 GitHub Pages
+### 开启 GitHub Pages
 
 仓库页面 → Settings → Pages → Source 选择 `gh-pages` 分支 → Save
 
 几分钟后访问 `https://<你的用户名>.github.io/<仓库名>/` 即可看到周报。国内访问慢的话本地开代理即可；微信推送摘要本身不受网络影响。
 
-### 4. 定时任务
+### 定时任务
 
 工作流已配置每周六 08:00（北京时间）自动运行。也可以在 Actions 页面点击 "Run workflow" 手动触发。
 
