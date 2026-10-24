@@ -43,17 +43,17 @@ jobs:
           test -f reports/index.html || { echo "报告未生成"; exit 1; }
           ls reports/
 
-      - name: 提交快照回 main（供下周环比，失败不阻塞部署）
+      - name: 提交估值数据库回 main（供下周环比，失败不阻塞部署）
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add data/snapshots/
+          git add data/valuation.db
           if git diff --staged --quiet; then
-            echo "快照无变化"
-          elif git commit -m "chore: 估值快照 $(date -u +%F)" && git push; then
-            echo "快照已回推"
+            echo "数据库无变化"
+          elif git commit -m "chore: 估值数据库 $(date -u +%F)" && git push; then
+            echo "数据库已回推"
           else
-            echo "::warning::快照回推失败，本周环比将缺失，不影响报告与部署"
+            echo "::warning::数据库回推失败，下周环比可能缺失，不影响报告与部署"
           fi
 
       - name: 部署到 GitHub Pages

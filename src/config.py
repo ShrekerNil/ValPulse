@@ -28,10 +28,24 @@ def load_config(path: Path = CONFIG_PATH) -> dict:
 
 
 def all_indexes(cfg: dict) -> list:
-    """合并 A股与跨境指数为统一列表"""
+    """合并 A股/黄金/跨境指数为统一列表（market: cn/gold/cross）"""
     items = []
     for it in cfg.get("indexes", []):
-        items.append({**it, "market": "cn", "source": "legulegu"})
+        items.append({**it, "market": "cn", "source": it.get("source", "legulegu")})
+    for it in cfg.get("gold", []):
+        items.append({**it, "market": "gold", "source": "gold"})
     for it in cfg.get("cross_border", []):
         items.append({**it, "market": "cross"})
     return items
+
+
+def holdings_of(cfg: dict, records_by_code: dict) -> list:
+    """组装持仓视图：[{fund, code, record, is_gold}]，记录缺失的跳过"""
+    out = []
+    for h in cfg.get("holdings", []):
+        rec = records_by_code.get(h["code"])
+        if rec is None:
+            continue
+        out.append({"fund": h["fund"], "code": h["code"],
+                    "record": rec, "is_gold": rec.get("market") == "gold"})
+    return out

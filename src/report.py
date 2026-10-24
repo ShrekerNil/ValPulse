@@ -1,182 +1,387 @@
 # -*- coding: utf-8 -*-
-"""HTML 周报生成：静态单页 + 历史归档，Pages 托管"""
-import html
-import logging
-from datetime import date
-from pathlib import Path
+"""单页交互看板渲染：持仓模块 + 大盘模块，ECharts 前端即时绘制。
 
-from .config import BAND_LABELS
+数据流：pipeline 写 SQLite -> 导出 reports/data/series.json 与
+snapshots.json -> 本模块渲染静态骨架 -> 浏览器端 fetch 数据渲染。
+日期切换、指标切换、十字线交互全部在前端完成，无需服务端参与。
+"""
+import json
+import logging
+from pathlib import Path
 
 log = logging.getLogger("valpulse.report")
 
-BAND_CLASS = {
-    "undervalued": "band-low",
-    "fair": "band-fair",
-    "high": "band-high",
-    "over": "band-over",
-    "unknown": "band-unknown",
-}
-
-CSS = """
-:root { --ink:#26251F; --muted:#6B6A62; --line:#E4E2DA; --bg:#FAFAF7; --card:#FFFFFF; }
-* { box-sizing: border-box; }
-body { margin:0; background:var(--bg); color:var(--ink);
-  font-family:-apple-system,"PingFang SC","Microsoft YaHei","Noto Sans CJK SC",sans-serif;
-  font-size:14px; line-height:1.65; }
-.wrap { max-width:960px; margin:0 auto; padding:28px 20px 60px; }
-header h1 { font-size:22px; margin:0 0 4px; }
-header .sub { color:var(--muted); font-size:13px; }
-.cards { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:12px; margin:20px 0; }
-.card { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:12px 14px; }
-.card .k { color:var(--muted); font-size:12px; }
-.card .v { font-size:20px; font-weight:600; margin-top:2px; }
-table { width:100%; border-collapse:collapse; background:var(--card);
-  border:1px solid var(--line); border-radius:10px; overflow:hidden; font-size:13px; }
-th,td { padding:8px 10px; text-align:right; border-bottom:1px solid var(--line); white-space:nowrap; }
-th:first-child,td:first-child { text-align:left; }
-th { background:#F3F1EA; font-weight:600; color:#4A4940; }
-tr:last-child td { border-bottom:none; }
-tr.cat td { background:#F7F6F1; font-weight:600; text-align:left; color:#4A4940; }
-.band { display:inline-block; padding:1px 8px; border-radius:8px; font-size:12px; color:#fff; }
-.band-low { background:#2E9B62; } .band-fair { background:#378ADD; }
-.band-high { background:#EF9F27; } .band-over { background:#E24B4A; }
-.band-unknown { background:#B4B2A9; }
-.up { color:#D33F3F; } .down { color:#2E9B62; }
-figure { margin:22px 0; background:var(--card); border:1px solid var(--line);
-  border-radius:10px; padding:14px; }
-figure img { width:100%; height:auto; }
-figcaption { color:var(--muted); font-size:12px; margin-top:8px; }
-.notes { color:var(--muted); font-size:12px; margin-top:26px; }
-.notes li { margin:3px 0; }
-footer { margin-top:18px; color:var(--muted); font-size:12px; }
-a { color:#185FA5; }
-"""
-
-
-def _fmt(v, nd=2):
-    return f"{v:.{nd}f}" if isinstance(v, (int, float)) else "-"
-
-
-def _chg_cell(v):
-    if not isinstance(v, (int, float)):
-        return "<td>-</td>"
-    cls = "up" if v > 0 else ("down" if v < 0 else "")
-    sign = "+" if v > 0 else ""
-    return f'<td class="{cls}">{sign}{v:.2f}%</td>'
-
-
-def _band_cell(band):
-    return f'<td><span class="band {BAND_CLASS.get(band, "band-unknown")}">{BAND_LABELS[band]}</span></td>'
-
-
-def render(records: list, charts: dict, out_dir: Path, report_date: str,
-           prev: dict | None) -> Path:
-    """生成 reports/<日期>/index.html；out_dir 为日期目录"""
-    out_dir.mkdir(parents=True, exist_ok=True)
-    chart_links = {}
-    for name, path in charts.items():
-        if path and Path(path).exists():
-            (out_dir / Path(path).name).write_bytes(Path(path).read_bytes())
-            chart_links[name] = Path(path).name
-
-    cn = [r for r in records if r["market"] == "cn"]
-    cross = [r for r in records if r["market"] == "cross"]
-    order = {"宽基": 0, "行业": 1, "策略": 2}
-
-    def table_rows(items):
-        html_rows = []
-        last_cat = None
-        for r in sorted(items, key=lambda x: (order.get(x["category"], 9), x["name"])):
-            if r["category"] != last_cat:
-                html_rows.append(f'<tr class="cat"><td colspan="8">{r["category"]}</td></tr>')
-                last_cat = r["category"]
-            wow = ""
-            prev_rec = (prev or {}).get(r["code"], {})
-            if prev_rec.get("pe_percentile") is not None and r.get("pe_percentile") is not None:
-                d = r["pe_percentile"] - prev_rec["pe_percentile"]
-                wow = f' ({d:+.1f})'
-            html_rows.append(
-                f"<tr><td>{html.escape(r['name'])}</td>"
-                f"<td>{_fmt(r.get('pe_value'))}</td>"
-                f"<td>{_fmt(r.get('pe_percentile'), 1) + '%' if r.get('pe_percentile') is not None else '-'}{wow}</td>"
-                f"{_band_cell(r.get('pe_band'))}"
-                f"<td>{_fmt(r.get('pb_value'))}</td>"
-                f"<td>{_fmt(r.get('pb_percentile'), 1) + '%' if r.get('pb_percentile') is not None else '-'}</td>"
-                f"{_band_cell(r.get('pb_band'))}"
-                f"{_chg_cell(r.get('change_pct'))}</tr>")
-        return "\n".join(html_rows)
-
-    valid_pcts = [r["pe_percentile"] for r in records if r.get("pe_percentile") is not None]
-    avg_pct = sum(valid_pcts) / len(valid_pcts) if valid_pcts else None
-    low_n = sum(1 for r in records if r.get("pe_band") == "undervalued")
-    high_n = sum(1 for r in records if r.get("pe_band") in ("high", "over"))
-
-    cards = f"""
-    <div class="cards">
-      <div class="card"><div class="k">覆盖指数</div><div class="v">{len(records)}</div></div>
-      <div class="card"><div class="k">PE 平均分位</div><div class="v">{_fmt(avg_pct, 1) + '%' if avg_pct is not None else '-'}</div></div>
-      <div class="card"><div class="k">低估（PE&lt;20%）</div><div class="v">{low_n}</div></div>
-      <div class="card"><div class="k">偏高+高估（PE&gt;70%）</div><div class="v">{high_n}</div></div>
-    </div>"""
-
-    figures = ""
-    if chart_links.get("overview"):
-        figures += (f'<figure><img src="{chart_links["overview"]}" alt="估值分位总览">'
-                    f"<figcaption>绿色=低估（&lt;20%），蓝色=合理（20-70%），橙色=偏高（70-90%），红色=高估（&gt;90%）</figcaption></figure>")
-    if chart_links.get("trends"):
-        figures += (f'<figure><img src="{chart_links["trends"]}" alt="重点指数估值走势">'
-                    f"<figcaption>虚线为窗口内 20/50/80 分位参考线，红点为最新值</figcaption></figure>")
-
-    page = f"""<!DOCTYPE html>
+PAGE = """<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>指数估值周报 {report_date}</title>
-<style>{CSS}</style>
+<title>ValPulse 估值看板</title>
+<script src="assets/echarts.min.js"></script>
+<style>
+:root{
+  --up:#c62828; --down:#2e7d32;           /* A股惯例：涨红跌绿 */
+  --ink:#212121; --ink2:#616161; --line:#e0e0e0; --bg:#f5f6f8; --card:#ffffff;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:"Microsoft YaHei","PingFang SC","Noto Sans CJK SC",sans-serif;
+  background:var(--bg);color:var(--ink);line-height:1.6}
+.wrap{max-width:1080px;margin:0 auto;padding:20px 16px 60px}
+header{display:flex;flex-wrap:wrap;align-items:baseline;gap:12px;padding:8px 0 4px}
+h1{font-size:22px}
+h2{font-size:17px;margin:26px 0 12px;padding-left:10px;border-left:4px solid #1565c0}
+.sub{color:var(--ink2);font-size:13px}
+select{padding:4px 8px;border:1px solid var(--line);border-radius:6px;background:#fff;font-size:13px}
+.notice{background:#fff8e1;border:1px solid #ffe082;border-radius:8px;
+  padding:8px 12px;font-size:12px;color:#795548;margin:10px 0}
+section{background:var(--card);border:1px solid var(--line);border-radius:12px;
+  padding:18px 20px;margin-top:16px}
+/* 组合 / 大盘温度条 */
+.tempbar{display:flex;flex-wrap:wrap;align-items:center;gap:16px;
+  background:linear-gradient(90deg,#e8f5e9,#e3f2fd,#fff3e0,#ffebee);
+  border-radius:10px;padding:14px 18px;margin-bottom:14px}
+.tempbar .t{font-size:34px;font-weight:700}
+.tempbar .meta{font-size:13px;color:var(--ink2)}
+.tempbar .meta b{color:var(--ink)}
+/* 持仓卡片 */
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px}
+.card{border:1px solid var(--line);border-radius:10px;padding:14px 16px;background:#fff}
+.card .fund{font-size:14px;font-weight:600}
+.card .idx{font-size:12px;color:var(--ink2);margin-bottom:8px}
+.kv{display:flex;justify-content:space-between;font-size:13px;padding:3px 0}
+.kv .v{font-variant-numeric:tabular-nums}
+.pill{display:inline-block;padding:1px 10px;border-radius:20px;font-size:12px;font-weight:600}
+.spark{height:56px;margin:8px -6px 4px}
+.sig{margin-top:8px;font-size:13px;padding:8px 10px;border-radius:8px;background:#f5f5f5}
+.sig b{display:block}
+.sig .d{font-size:12px;color:var(--ink2)}
+/* 估值表 */
+table{width:100%;border-collapse:collapse;font-size:13px;margin-top:6px}
+th,td{padding:7px 8px;text-align:right;border-bottom:1px solid var(--line);
+  font-variant-numeric:tabular-nums;white-space:nowrap}
+th:first-child,td:first-child{text-align:left}
+th{background:#fafafa;color:var(--ink2);font-weight:600}
+tr.cat td{background:#eceff1;font-weight:700;text-align:left;color:#37474f}
+tbody tr.data:hover{background:#f5f9ff;cursor:pointer}
+tbody tr.data.sel{background:#e3f2fd}
+td.up{color:var(--up)} td.down{color:var(--down)}
+/* 主图 */
+.toolbar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin:14px 0 6px}
+.toolbar .grp{display:flex;border:1px solid var(--line);border-radius:6px;overflow:hidden}
+.toolbar .grp button{border:0;background:#fff;padding:4px 12px;font-size:12px;cursor:pointer}
+.toolbar .grp button.on{background:#1565c0;color:#fff}
+#mainChart{height:420px}
+.legend{display:flex;flex-wrap:wrap;gap:12px;font-size:12px;color:var(--ink2);margin-top:8px}
+footer{margin-top:26px;font-size:12px;color:var(--ink2);border-top:1px solid var(--line);padding-top:14px}
+footer p{margin:4px 0}
+</style>
 </head>
 <body>
 <div class="wrap">
 <header>
-  <h1>指数估值周报</h1>
-  <div class="sub">{report_date} · 数据截至当日收盘 · 分位口径：近10年（剔除亏损期）</div>
+  <h1>ValPulse 估值看板</h1>
+  <span class="sub">数据日期</span>
+  <select id="dateSel"></select>
+  <span class="sub" id="dateMeta"></span>
 </header>
-{cards}
-<figure><table>
-<thead><tr><th>指数</th><th>PE</th><th>PE分位</th><th>状态</th><th>PB</th><th>PB分位</th><th>状态</th><th>日涨跌</th></tr></thead>
-<tbody>
-{table_rows(cn)}
-<tr class="cat"><td colspan="8">跨境（月频数据）</td></tr>
-{table_rows(cross)}
-</tbody>
-</table></figure>
-{figures}
-<div class="notes">
-<ul>
-<li>分位 = 当前值在近10年历史样本中的百分位（样本剔除 PE 为负的亏损期）；括号内为较上周变化。</li>
-<li>A 股 PE/PB 为乐咕乐股等权口径（历史约 2005 年至今）；标普500/恒生科技为月度频率，PB 暂无免费数据源故留空。</li>
-<li>日涨跌按 A 股惯例：红涨绿跌。数据来源于乐咕乐股、中证指数官网、腾讯行情、multpl.com、恒生指数公司。</li>
-<li>本报告仅为数据整理，不构成投资建议。</li>
-</ul>
+<div class="notice">估值分位为历史统计参考，不构成投资建议；定投信号为规则化提示，请结合自身风险承受能力决策。</div>
+<div class="notice" style="background:#e3f2fd;border-color:#90caf9;color:#0d47a1">中证A500 于 2024 年 10 月发布，其分位基于发布以来约 2 年数据，长周期参考性有限；黄金（Au99.99）没有 PE/PB 估值概念，仅展示价格历史分位，不代表估值高低。</div>
+
+<section id="secHoldings">
+  <h2>我的持仓</h2>
+  <div class="tempbar" id="portfolioBar"></div>
+  <div class="cards" id="holdingCards"></div>
+</section>
+
+<section id="secMarket">
+  <h2>大盘</h2>
+  <div class="tempbar" id="marketBar"></div>
+  <div class="legend" id="bandLegend"></div>
+  <div class="toolbar">
+    <span class="sub">指数</span>
+    <select id="idxSel"></select>
+    <div class="grp" id="metricGrp">
+      <button data-m="pe" class="on">PE</button>
+      <button data-m="pb">PB</button>
+      <button data-m="price">价格</button>
+    </div>
+  </div>
+  <table id="valTable">
+    <thead><tr>
+      <th>指数</th><th>PE</th><th>PE分位</th><th>状态</th>
+      <th>PB</th><th>PB分位</th><th>状态</th><th>日涨跌</th>
+    </tr></thead>
+    <tbody></tbody>
+  </table>
+  <div id="mainChart"></div>
+  <div class="legend" id="chartHint"></div>
+</section>
+
+<footer>
+  <p>免责声明：本看板数据来源于公开渠道，分位与信号均为历史统计口径，不构成任何投资建议。市场有风险，投资需谨慎。</p>
+  <p>数据源：乐咕乐股（A股 PE/PB）、中证指数官网（PE）、腾讯行情、东方财富（黄金/跨境）、multpl.com（标普500）、恒生指数公司（恒生科技）。</p>
+  <p>ValPulse 每周六自动生成 · 报告日期 __REPORT_DATE__</p>
+</footer>
 </div>
-<footer>ValPulse 自动生成 · <a href="../index.html">最新周报</a> · <a href="../archive.html">历史归档</a></footer>
-</div>
+
+<script>
+/* ===== 数据 ===== */
+const HOLDINGS = __HOLDINGS__;        /* [{fund, code}] */
+const BROAD = __BROAD__;              /* 大盘温度合成用宽基代码 */
+const WINDOW_YEARS = __WINDOW_YEARS__;
+const BAND = {
+  undervalued:{cn:"低估", color:"#2e7d32", bg:"#e8f5e9"},
+  fair:      {cn:"合理", color:"#1565c0", bg:"#e3f2fd"},
+  high:      {cn:"偏高", color:"#ef6c00", bg:"#fff3e0"},
+  over:      {cn:"高估", color:"#c62828", bg:"#ffebee"},
+  unknown:   {cn:"数据不足", color:"#757575", bg:"#f5f5f5"},
+};
+const SIGNAL = {
+  undervalued:{label:"可加大定投", detail:"历史低位，参考加大至 1.5-2 倍", tone:"#2e7d32"},
+  fair:      {label:"正常定投",   detail:"历史中位，按计划定投",       tone:"#1565c0"},
+  high:      {label:"减少定投",   detail:"历史偏高，可减半或暂停",     tone:"#ef6c00"},
+  over:      {label:"分批止盈",   detail:"历史高位，可分批止盈",       tone:"#c62828"},
+  unknown:   {label:"数据不足",   detail:"暂无可执行信号",             tone:"#757575"},
+};
+const TEMP_BANDS = [
+  [15,"极度低估","积极定投区间"],[35,"相对低估","可加大定投"],
+  [55,"正常","正常定投"],[75,"相对高估","减少定投"],[101,"极度高估","分批止盈区间"],
+];
+const UP="#c62828", DOWN="#2e7d32";
+
+let SERIES={}, SNAPS={}, DATES=[], curDate="", curCode="", curMetric="pe";
+const sparks={}, mainChart=echarts.init(document.getElementById("mainChart"));
+
+/* ===== 工具 ===== */
+const $=s=>document.querySelector(s);
+const fmt=(v,d=2)=>v==null?"—":Number(v).toFixed(d);
+const pctTxt=v=>v==null?"—":Number(v).toFixed(0)+"%";
+const chgCell=v=>v==null?'<td>—</td>':
+  `<td class="${v>=0?"up":"down"}">${v>=0?"+":""}${Number(v).toFixed(2)}%</td>`;
+function tempBand(t){
+  if(t==null) return ["数据不足",""];
+  for(const [lim,name,act] of TEMP_BANDS) if(t<lim) return [name,act];
+  return ["极度高估","分批止盈区间"];
+}
+function mean(a){const v=a.filter(x=>x!=null);return v.length?v.reduce((s,x)=>s+x,0)/v.length:null;}
+function snapsOf(date){return SNAPS[date]||{};}
+function isGold(code){return code.indexOf("GOLD.")===0;}
+function windowStart(){
+  const d=new Date(curDate); d.setFullYear(d.getFullYear()-WINDOW_YEARS);
+  return d.toISOString().slice(0,10);
+}
+
+/* ===== 渲染：温度条 ===== */
+function renderPortfolioBar(recs){
+  const pcts=[],notes=[];
+  for(const h of HOLDINGS){
+    const r=recs[h.code]; if(!r) continue;
+    if(isGold(h.code)){
+      if(r.price_pct!=null) notes.push(`${r.name}价格分位 ${pctTxt(r.price_pct)}（仅价格参考）`);
+    }else if(r.pe_pct!=null) pcts.push(r.pe_pct);
+  }
+  const t=mean(pcts),[band,act]=tempBand(t);
+  $("#portfolioBar").innerHTML= t==null
+    ? `<span class="t">—</span><span class="meta">持仓数据不足</span>`
+    : `<span class="t">${t.toFixed(0)}℃</span>
+       <span class="meta"><b>${band}</b> · ${act}<br>
+       ${notes.length?"估值温度基于 "+pcts.length+" 只有估值分位持仓合成；"+notes.join("；")
+                     :"基于 "+pcts.length+" 只持仓等权合成"}</span>`;
+}
+function renderMarketBar(recs){
+  const pcts=BROAD.map(c=>recs[c]&&recs[c].pe_pct).filter(v=>v!=null);
+  const t=mean(pcts),[band,act]=tempBand(t);
+  $("#marketBar").innerHTML= t==null
+    ? `<span class="t">—</span><span class="meta">宽基数据不足</span>`
+    : `<span class="t">${t.toFixed(0)}℃</span>
+       <span class="meta"><b>${band}</b> · ${act}<br>基于 ${pcts.length} 只宽基 PE 分位等权合成</span>`;
+  $("#bandLegend").innerHTML=Object.values(BAND).map(b=>
+    `<span><span class="pill" style="color:${b.color};background:${b.bg}">${b.cn}</span></span>`
+  ).join("");
+}
+
+/* ===== 渲染：持仓卡片 ===== */
+function renderCards(recs){
+  const box=$("#holdingCards"); box.innerHTML="";
+  for(const k in sparks){ sparks[k].dispose&&sparks[k].dispose(); delete sparks[k]; }
+  for(const h of HOLDINGS){
+    const r=recs[h.code]; if(!r) continue;
+    const gold=isGold(h.code);
+    const sig=gold?{label:"仅价格参考",detail:"黄金无 PE/PB 估值，按价格分位自行判断",tone:"#757575"}
+                  :(SIGNAL[r.pe_band]||SIGNAL.unknown);
+    const div=document.createElement("div"); div.className="card";
+    div.innerHTML=`
+      <div class="fund">${h.fund}</div>
+      <div class="idx">跟踪：${r.name}${gold?"（商品）":""}${r.frequency==="monthly"?"（月频）":""}</div>
+      ${gold?`
+        <div class="kv"><span>金价（元/克）</span><span class="v">${fmt(r.price)}</span></div>
+        <div class="kv"><span>价格历史分位</span><span class="v">${pctTxt(r.price_pct)}</span></div>`
+      :`
+        <div class="kv"><span>PE(TTM)</span><span class="v">${fmt(r.pe)}</span></div>
+        <div class="kv"><span>PE 历史分位</span><span class="v">${pctTxt(r.pe_pct)}</span></div>
+        <div class="kv"><span>PB</span><span class="v">${fmt(r.pb)}</span></div>
+        <div class="kv"><span>PB 历史分位</span><span class="v">${pctTxt(r.pb_pct)}</span></div>`}
+      <div class="kv"><span>日涨跌</span><span class="v" style="color:${r.change_pct==null?"inherit":(r.change_pct>=0?UP:DOWN)}">${r.change_pct==null?"—":(r.change_pct>=0?"+":"")+r.change_pct.toFixed(2)+"%"}</span></div>
+      <div class="spark" id="sp_${r.code.replace(/[^a-zA-Z0-9]/g,"_")}"></div>
+      <div class="sig" style="border-left:4px solid ${sig.tone}">
+        <b style="color:${sig.tone}">${sig.label}</b><span class="d">${sig.detail}</span>
+      </div>`;
+    box.appendChild(div);
+    const metric=gold?"price":"pe";
+    const pts=((SERIES[h.code]||{})[metric]||[]).filter(p=>p[0]>=windowStart());
+    if(pts.length>1){
+      const c=echarts.init(div.querySelector(".spark"));
+      sparks[r.code]=c;
+      c.setOption({grid:{left:0,right:0,top:2,bottom:2},xAxis:{type:"time",show:false},
+        yAxis:{type:"value",show:false,scale:true},tooltip:{trigger:"axis",
+        axisPointer:{type:"cross",label:{show:false}},
+        formatter:p=>`${p[0].axisValueLabel}<br>${fmt(p[0].data[1])}`},
+        series:[{type:"line",data:pts,showSymbol:false,smooth:true,
+          lineStyle:{width:1.5,color:sig.tone},areaStyle:{color:sig.tone,opacity:0.12}}]});
+    }
+  }
+}
+
+/* ===== 渲染：估值表 ===== */
+function renderTable(recs){
+  const order=["宽基","行业","策略","商品","跨境"];
+  const groups={};
+  for(const code in recs){
+    const r=recs[code];
+    (groups[r.category]=groups[r.category]||[]).push(r);
+  }
+  let html="";
+  const keys=order.concat(Object.keys(groups).filter(k=>order.indexOf(k)<0));
+  for(const g of keys){
+    if(!groups[g]) continue;
+    const rows=groups[g].sort((a,b)=>(b.pe_pct==null?-1:b.pe_pct)-(a.pe_pct==null?-1:a.pe_pct));
+    html+=`<tr class="cat"><td colspan="8">${g}</td></tr>`;
+    for(const r of rows){
+      const gold=isGold(r.code);
+      const sel=r.code===curCode?' class="data sel"':' class="data"';
+      html+=`<tr${sel} data-code="${r.code}">
+        <td>${r.name}</td>
+        ${gold?`<td colspan="3" style="text-align:left;color:#757575">金价 ${fmt(r.price)} 元/克 · 价格分位 ${pctTxt(r.price_pct)}</td>`
+              :`<td>${fmt(r.pe)}</td><td>${pctTxt(r.pe_pct)}</td>
+                <td><span class="pill" style="color:${BAND[r.pe_band].color};background:${BAND[r.pe_band].bg}">${BAND[r.pe_band].cn}</span></td>`}
+        <td>${gold?"—":fmt(r.pb)}</td><td>${gold?"—":pctTxt(r.pb_pct)}</td>
+        <td>${gold?"—":`<span class="pill" style="color:${BAND[r.pb_band].color};background:${BAND[r.pb_band].bg}">${BAND[r.pb_band].cn}</span></td>`}
+        ${chgCell(r.change_pct)}</tr>`;
+    }
+  }
+  $("#valTable tbody").innerHTML=html;
+  document.querySelectorAll("#valTable tbody tr.data").forEach(tr=>
+    tr.addEventListener("click",()=>selectIndex(tr.dataset.code)));
+}
+
+/* ===== 渲染：主图（十字线） ===== */
+function selectIndex(code){
+  curCode=code;
+  $("#idxSel").value=code;
+  document.querySelectorAll("#valTable tbody tr.data").forEach(tr=>
+    tr.classList.toggle("sel",tr.dataset.code===code));
+  renderMain();
+}
+function renderMain(){
+  const metric=curMetric;
+  const pts=((SERIES[curCode]||{})[metric]||[]).filter(p=>p[0]>=windowStart());
+  const rec=snapsOf(curDate)[curCode]||{};
+  const name=rec.name||curCode;
+  const color=metric==="price"?"#f9a825":"#1565c0";
+  const markLine=[];
+  const metricName={pe:"PE(TTM)",pb:"PB",price:"价格"}[metric];
+  if(metric==="pe"&&rec.pe!=null)
+    markLine.push({yAxis:rec.pe,label:{formatter:`当前 ${fmt(rec.pe)}（分位 ${pctTxt(rec.pe_pct)}）`,position:"insideEndTop"}});
+  if(metric==="pb"&&rec.pb!=null)
+    markLine.push({yAxis:rec.pb,label:{formatter:`当前 ${fmt(rec.pb)}（分位 ${pctTxt(rec.pb_pct)}）`,position:"insideEndTop"}});
+  if(metric==="price"&&rec.price!=null)
+    markLine.push({yAxis:rec.price,label:{formatter:`当前 ${fmt(rec.price)}`,position:"insideEndTop"}});
+  mainChart.setOption({
+    animation:false,
+    title:{text:`${name} · ${metricName}（近${WINDOW_YEARS}年）`,textStyle:{fontSize:14}},
+    grid:{left:56,right:16,top:42,bottom:28},
+    tooltip:{trigger:"axis",axisPointer:{type:"cross",crossStyle:{color:"#999"},
+      label:{backgroundColor:"#546e7a"}},
+      valueFormatter:v=>v==null?"—":Number(v).toFixed(2)},
+    xAxis:{type:"time",boundaryGap:false,axisLabel:{formatter:"{yyyy}-{MM}"}},
+    yAxis:{type:"value",scale:true,name:metric==="price"?"元/克":metric.toUpperCase()},
+    series:[{type:"line",data:pts,showSymbol:false,smooth:true,
+      lineStyle:{width:1.6,color},areaStyle:{color,opacity:0.08},
+      markLine:{silent:true,symbol:"none",lineStyle:{color:"#c62828",type:"dashed"},
+        data:markLine}}]
+  },true);
+  $("#chartHint").innerHTML=curMetric==="price"
+    ? "黄金无 PE/PB 估值概念，此处为价格走势（价格分位不代表估值高低）"
+    : `PE/PB 分位 = 当前值在近 ${WINDOW_YEARS} 年历史中的位置；当前 ${pctTxt(rec.pe_pct!=null?rec.pe_pct:rec.pb_pct)}，可对照上方温带图例判断`;
+}
+
+/* ===== 日期切换 ===== */
+function switchDate(d){
+  curDate=d;
+  const recs=snapsOf(d);
+  $("#dateMeta").textContent=`共 ${DATES.length} 期 · 当前第 ${DATES.indexOf(d)+1} 期`;
+  renderPortfolioBar(recs); renderMarketBar(recs); renderCards(recs); renderTable(recs);
+  renderMain();
+}
+
+/* ===== 启动 ===== */
+Promise.all([
+  fetch("data/series.json").then(r=>r.json()),
+  fetch("data/snapshots.json").then(r=>r.json()),
+]).then(([series,snaps])=>{
+  SERIES=series;
+  for(const row of snaps){
+    (SNAPS[row.date]=SNAPS[row.date]||{})[row.code]=row;
+    if(DATES.indexOf(row.date)<0) DATES.push(row.date);
+  }
+  DATES.sort();
+  const sel=$("#dateSel");
+  sel.innerHTML=DATES.map(d=>`<option>${d}</option>`).join("");
+  curDate=DATES[DATES.length-1];
+  sel.value=curDate;
+  sel.addEventListener("change",()=>switchDate(sel.value));
+
+  const codes=Object.keys(SNAPS[curDate]||{});
+  $("#idxSel").innerHTML=codes.map(c=>{
+    const n=SNAPS[curDate][c].name;
+    return `<option value="${c}">${n}</option>`;
+  }).join("");
+  const prefer=["000300.SH","000510.CSI","399975.SZ"];
+  curCode=codes.find(c=>prefer.indexOf(c)>=0)||codes[0];
+  $("#idxSel").value=curCode;
+  $("#idxSel").addEventListener("change",()=>selectIndex($("#idxSel").value));
+
+  document.querySelectorAll("#metricGrp button").forEach(b=>
+    b.addEventListener("click",()=>{
+      document.querySelectorAll("#metricGrp button").forEach(x=>x.classList.remove("on"));
+      b.classList.add("on"); curMetric=b.dataset.m; renderMain();
+    }));
+
+  switchDate(curDate);
+  window.addEventListener("resize",()=>{mainChart.resize();
+    for(const k in sparks) sparks[k].resize();});
+}).catch(e=>{
+  document.body.insertAdjacentHTML("beforeend",
+    `<div class="notice">数据加载失败：${e.message}（请确认 data/series.json 与 data/snapshots.json 存在）</div>`);
+});
+</script>
 </body>
-</html>"""
-    (out_dir / "index.html").write_text(page, encoding="utf-8")
-    return out_dir / "index.html"
+</html>
+"""
 
 
-def render_archive(report_root: Path, items: list):
-    """生成归档索引页，items 为 [(date, title), ...] 按日期降序"""
-    rows = "\n".join(
-        f'<li><a href="./{d}/index.html">{html.escape(t)}</a></li>' for d, t in items)
-    page = f"""<!DOCTYPE html>
-<html lang="zh-CN"><head><meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>估值周报归档</title><style>{CSS}</style></head>
-<body><div class="wrap"><header><h1>估值周报归档</h1>
-<div class="sub">ValPulse 每周自动生成</div></header>
-<ul style="line-height:2">{rows}</ul>
-<p><a href="./index.html">返回最新周报</a></p></div></body></html>"""
-    (report_root / "archive.html").write_text(page, encoding="utf-8")
+def render_dashboard(out_dir: Path, report_date: str, holdings: list, broad: list,
+                     window_years: int = 10):
+    """渲染单页看板到 out_dir/index.html（数据文件由 export_web_data 先行导出）"""
+    out_dir.mkdir(parents=True, exist_ok=True)
+    page = (PAGE
+            .replace("__REPORT_DATE__", report_date)
+            .replace("__HOLDINGS__", json.dumps(
+                [{"fund": h["fund"], "code": h["code"]} for h in holdings],
+                ensure_ascii=False))
+            .replace("__BROAD__", json.dumps(broad, ensure_ascii=False))
+            .replace("__WINDOW_YEARS__", str(window_years)))
+    path = out_dir / "index.html"
+    path.write_text(page, encoding="utf-8")
+    log.info("看板已生成: %s", path)
+    return path

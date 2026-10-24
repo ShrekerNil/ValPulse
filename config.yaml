@@ -11,7 +11,8 @@ fetch:
   max_retries: 3            # 单接口失败重试次数
   backoff_seconds: [20, 45, 90]  # 重试退避
 
-# A股指数：乐咕源（等权口径 PE-TTM / PB），历史约2005年至今
+# A股指数：默认乐咕源（等权口径 PE-TTM / PB），历史约2005年至今
+# source: csi 的走中证指数官网 PE（乐咕未收录的指数，如A500、证券公司）
 indexes:
   - code: "000300.SH"
     name: "沪深300"
@@ -19,6 +20,10 @@ indexes:
   - code: "000905.SH"
     name: "中证500"
     category: "宽基"
+  - code: "000510.CSI"
+    name: "中证A500"
+    category: "宽基"
+    source: "csi"           # 2024年发布，中证官网有2016年起回溯PE；乐咕未收录，PB暂无免费源
   - code: "000852.SH"
     name: "中证1000"
     category: "宽基"
@@ -40,6 +45,10 @@ indexes:
   - code: "399986.SZ"
     name: "中证银行"
     category: "行业"
+  - code: "399975.SZ"
+    name: "证券公司"
+    category: "行业"
+    source: "csi"           # 中证全指证券公司指数，乐咕未收录，走中证官网PE
   - code: "000992.SH"
     name: "全指金融"
     category: "行业"
@@ -49,6 +58,12 @@ indexes:
   - code: "000015.SH"
     name: "上证红利"
     category: "策略"
+
+# 黄金：无 PE/PB（无盈利与净资产概念），仅计算价格历史分位
+gold:
+  - code: "GOLD.AU9999"
+    name: "上海金Au99.99"
+    category: "商品"
 
 # 跨境指数
 cross_border:
@@ -61,9 +76,19 @@ cross_border:
     category: "宽基"
     source: "legulegu_hsi"  # 月频 PE（乐咕恒生专题页，数据源恒生指数公司），无 PB
 
-# 走势图展示的重点指数（取 indexes 中的 code）
-chart_focus:
+# 我的持仓（定投中）：看板"我的持仓"模块按此渲染
+holdings:
+  - fund: "易方达中证A500ETF联接A"
+    code: "000510.CSI"
+  - fund: "华宝券商ETF联接A"
+    code: "399975.SZ"
+  - fund: "易方达黄金ETF联接A"
+    code: "GOLD.AU9999"
+
+# 大盘温度合成：宽基指数 PE 分位等权均值（0-100），五档温带
+broad_indexes:
   - "000300.SH"
   - "000905.SH"
+  - "000510.CSI"
+  - "000852.SH"
   - "399006.SZ"
-  - "000922.CSI"

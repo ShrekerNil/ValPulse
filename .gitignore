@@ -4,5 +4,7 @@ __pycache__/
 .probe_*
 .env
 data/raw/
+data/snapshots/
 .workbuddy/
 reports/_charts/
+reports/data/

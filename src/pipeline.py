@@ -1,19 +1,17 @@
 # -*- coding: utf-8 -*-
-"""ValPulse 主流程：抓取 -> 分位 -> 图表 -> 报告 -> 推送"""
-import json
+"""ValPulse 主流程：抓取 -> 分位 -> SQLite -> 导出 -> 看板 -> 邮件推送"""
 import logging
 import os
-import shutil
 import sys
 from datetime import date
 from pathlib import Path
 
-from . import charts as charts_mod
-from . import fetchers, percentile as pct_mod
-from .config import (BAND_LABELS, REPORT_DIR, SNAPSHOT_DIR, all_indexes,
+from . import db, fetchers, percentile as pct_mod
+from .config import (BAND_LABELS, REPORT_DIR, all_indexes, holdings_of,
                      load_config)
 from .push import build_summary, push_summary
-from .report import render, render_archive
+from .report import render_dashboard
+from .signal import market_temperature, portfolio_temperature
 
 logging.basicConfig(level=logging.INFO,
                     format="%(asctime)s %(levelname)s %(name)s: %(message)s")
@@ -39,7 +37,7 @@ def _pe_key_of(rows: list) -> str:
 
 
 def fetch_all(cfg: dict) -> tuple:
-    """抓取全部指数原始数据，返回 (raw, failed)"""
+    """抓取全部标的原始数据，返回 (raw, failed)"""
     fcfg = cfg.get("fetch", {})
     lg = fetchers.LeguleguClient(
         interval=fcfg.get("interval_seconds", 8),
@@ -47,31 +45,41 @@ def fetch_all(cfg: dict) -> tuple:
         max_retries=fcfg.get("max_retries", 3),
         backoff=tuple(fcfg.get("backoff_seconds", [20, 45, 90])),
     )
+    window = cfg.get("percentile", {}).get("window_years", 10)
     raw, failed = {}, []
     for item in all_indexes(cfg):
         code, market = item["code"], item["market"]
+        source = item.get("source")
         entry = {"meta": item, "pe": None, "pb": None}
         try:
-            if market == "cn":
+            if market == "gold":
+                # 黄金无 PE/PB，只抓价格序列
+                entry["price_series"] = fetchers.fetch_gold_history()
+            elif source == "csi":
+                # 乐咕未收录的指数（A500/证券公司）：中证官网 PE 为主源
+                entry["pe"] = fetchers.fetch_csi_pe(code, window)
+                if entry["pe"]:
+                    entry["pe_fallback"] = "csi"
+                    log.info("%s 走中证官网 PE 主源（%d 行）", code, len(entry["pe"]))
+            elif market == "cn":
                 entry["pe"] = lg.fetch_pe(code)
                 entry["pb"] = lg.fetch_pb(code)
                 if not entry["pe"]:
-                    window = cfg.get("percentile", {}).get("window_years", 10)
                     csi = fetchers.fetch_csi_pe(code, window)
                     if csi:
                         entry["pe"] = csi
                         entry["pe_fallback"] = "csi"
                         log.info("%s 乐咕 PE 失败，已用中证官网兜底（%d 行）",
                                  code, len(csi))
-            elif item.get("source") == "multpl":
+            elif source == "multpl":
                 entry["pe"] = fetchers.fetch_multpl_spx()
                 entry["frequency"] = "monthly"
-            elif item.get("source") == "legulegu_hsi":
+            elif source == "legulegu_hsi":
                 entry["pe"] = lg.fetch_hsi_pe(code)
                 entry["frequency"] = "monthly"
-        except Exception as e:  # 单个指数失败不影响整体
+        except Exception as e:  # 单个标的失败不影响整体
             log.exception("%s 抓取异常: %s", code, e)
-        if not entry["pe"] and not entry["pb"]:
+        if not entry["pe"] and not entry["pb"] and not entry.get("price_series"):
             failed.append(code)
             log.error("%s 抓取完全失败", code)
         raw[code] = entry
@@ -87,6 +95,33 @@ def compute_records(cfg: dict, raw: dict, tx: dict) -> list:
     records = []
     for code, entry in raw.items():
         meta = entry["meta"]
+        rec = {
+            "code": code, "name": meta["name"], "market": meta["market"],
+            "category": meta.get("category", "宽基"),
+            "frequency": entry.get("frequency", "daily"),
+            "pe_fallback": entry.get("pe_fallback"),
+        }
+        if meta["market"] == "gold":
+            # 黄金：只有价格分位，无 PE/PB 概念
+            ev = pct_mod.evaluate(entry.get("price_series") or [], "price",
+                                  window, bands)
+            rec.update({
+                "price": ev["value"], "price_percentile": ev["percentile"],
+                "price_band": ev["band"], "price_samples": ev["sample_count"],
+                "pe_value": None, "pe_percentile": None, "pe_band": "unknown",
+                "pe_samples": 0,
+                "pb_value": None, "pb_percentile": None, "pb_band": "unknown",
+                "pb_samples": 0,
+            })
+            # 日涨跌取序列尾部两日收盘价
+            ps = entry.get("price_series") or []
+            if len(ps) >= 2 and ps[-2]["price"]:
+                rec["change_pct"] = round(
+                    (ps[-1]["price"] - ps[-2]["price"]) / ps[-2]["price"] * 100, 2)
+            else:
+                rec["change_pct"] = None
+            records.append(rec)
+            continue
         pe_key = _pe_key_of(entry["pe"])
         pe_eval = pct_mod.evaluate(entry["pe"], pe_key, window, bands)
         pb_eval = pct_mod.evaluate(entry["pb"], PB_KEY, window, bands)
@@ -96,11 +131,7 @@ def compute_records(cfg: dict, raw: dict, tx: dict) -> list:
             pe_eval["band"] = "unknown"
         tx_sym = fetchers.tencent_symbol(code, meta["market"])
         quote = tx.get(tx_sym, {})
-        rec = {
-            "code": code, "name": meta["name"], "market": meta["market"],
-            "category": meta.get("category", "宽基"),
-            "frequency": entry.get("frequency", "daily"),
-            "pe_fallback": entry.get("pe_fallback"),
+        rec.update({
             "pe_value": pe_eval["value"], "pe_date": pe_eval["value_date"],
             "pe_percentile": pe_eval["percentile"], "pe_band": pe_eval["band"],
             "pe_band_cn": BAND_LABELS[pe_eval["band"]],
@@ -111,60 +142,44 @@ def compute_records(cfg: dict, raw: dict, tx: dict) -> list:
             "pb_samples": pb_eval["sample_count"],
             "price": quote.get("price"),
             "change_pct": quote.get("change_pct"),
-        }
+        })
         records.append(rec)
     return records
 
 
-def build_trend_series(cfg: dict, raw: dict, records: list) -> list:
-    """为重点指数构建走势图数据"""
-    pcfg = cfg.get("percentile", {})
-    window = pcfg.get("window_years", 10)
-    series = []
-    by_code = {r["code"]: r for r in records}
-    for code in cfg.get("chart_focus", []):
-        entry = raw.get(code)
-        rec = by_code.get(code)
-        if not entry or not entry["pe"] or not rec or rec["pe_percentile"] is None:
-            continue
-        key = _pe_key_of(entry["pe"])
-        points = [(str(r.get("date")), float(r[key]))
-                  for r in entry["pe"]
-                  if isinstance(r.get(key), (int, float)) and r[key] > 0]
-        window_pts = [p for p in points
-                      if p[0] >= (date.today().replace(year=date.today().year - window)
-                                  .isoformat())]
-        series.append({"name": rec["name"], "points": window_pts or points[-260:],
-                       "current": rec["pe_value"],
-                       "percentile": rec["pe_percentile"]})
-    return series
-
-
-def load_previous() -> dict:
-    """读取上一期快照用于环比"""
-    snaps = sorted(SNAPSHOT_DIR.glob("*.json"))
-    today = date.today().isoformat()
-    for p in reversed(snaps):
-        if p.stem < today:
-            try:
-                data = json.loads(p.read_text(encoding="utf-8"))
-                return {r["code"]: r for r in data.get("records", [])}
-            except (OSError, ValueError, KeyError):
-                continue
-    return {}
+def save_series_to_db(conn, raw: dict):
+    """把本期抓到的全历史序列写入 SQLite（前端图的数据源）"""
+    for code, entry in raw.items():
+        if entry.get("pe"):
+            key = _pe_key_of(entry["pe"])
+            db.save_series(conn, code, "pe",
+                           [{"date": r["date"], "value": r[key]} for r in entry["pe"]
+                            if isinstance(r.get(key), (int, float)) and r[key] > 0])
+        if entry.get("pb"):
+            db.save_series(conn, code, "pb",
+                           [{"date": r["date"], "value": r[PB_KEY]} for r in entry["pb"]
+                            if isinstance(r.get(PB_KEY), (int, float)) and r[PB_KEY] > 0])
+        if entry.get("price_series"):
+            db.save_series(conn, code, "price", entry["price_series"])
 
 
 def _run() -> int:
     cfg = load_config()
-    charts_mod.setup_font()
+    window = cfg.get("percentile", {}).get("window_years", 10)
+    conn = db.connect()
+    db.init_db(conn)
+    imported = db.import_legacy_snapshots(conn)
+
     today = date.today()
     report_date = today.isoformat()
 
-    log.info("开始抓取数据")
+    log.info("开始抓取数据（历史快照导入 %d 期）", imported)
     raw, failed = fetch_all(cfg)
 
     tx_map = {}
     for item in all_indexes(cfg):
+        if item["market"] == "gold":
+            continue  # 黄金涨跌由价格序列计算
         sym = fetchers.tencent_symbol(item["code"], item["market"])
         tx_map[sym] = item["code"]
     tx = fetchers.fetch_tencent(tx_map)
@@ -189,38 +204,25 @@ def _run() -> int:
         log.info("东财兜底行情 %d 条", len(em))
 
     records = compute_records(cfg, raw, tx)
-    log.info("分位计算完成：%d 个指数，失败 %d 个", len(records), len(failed))
+    log.info("分位计算完成：%d 个标的，失败 %d 个", len(records), len(failed))
 
-    series = build_trend_series(cfg, raw, records)
-    chart_dir = REPORT_DIR / "_charts"
-    chart_dir.mkdir(parents=True, exist_ok=True)
-    overview_png = chart_dir / "overview.png"
-    trends_png = chart_dir / "trends.png"
-    charts_mod.chart_overview(records, str(overview_png), cfg["percentile"]["bands"])
-    charts_mod.chart_trends(series, str(trends_png))
+    save_series_to_db(conn, raw)
+    db.save_snapshot(conn, report_date, records)
+    db.export_web_data(conn, REPORT_DIR)
 
-    prev = load_previous()
-    date_dir = REPORT_DIR / report_date
-    render(records, {"overview": str(overview_png), "trends": str(trends_png)},
-           date_dir, report_date, prev)
-    shutil.copyfile(date_dir / "index.html", REPORT_DIR / "index.html")
-    for name in ("overview.png", "trends.png"):
-        src_png = date_dir / name
-        if src_png.exists():
-            shutil.copyfile(src_png, REPORT_DIR / name)
-    items = sorted(((p.parent.name, f"指数估值周报 {p.parent.name}")
-                    for p in REPORT_DIR.glob("*/index.html")), reverse=True)
-    render_archive(REPORT_DIR, items)
-    log.info("报告已生成: %s", date_dir)
+    by_code = {r["code"]: r for r in records}
+    holdings = holdings_of(cfg, by_code)
+    port_temp = portfolio_temperature(holdings)
+    mkt_temp = market_temperature(records, cfg.get("broad_indexes", []))
+    render_dashboard(REPORT_DIR, report_date, holdings,
+                     cfg.get("broad_indexes", []), window)
+    log.info("看板已生成: %s", REPORT_DIR / "index.html")
 
-    snapshot = {"date": report_date, "records": records, "failed": failed}
-    (SNAPSHOT_DIR / f"{report_date}.json").write_text(
-        json.dumps(snapshot, ensure_ascii=False, indent=1), encoding="utf-8")
-
-    title = f"指数估值周报 {report_date}"
-    content = build_summary(records, os.environ.get("REPORT_URL") or None, report_date)
+    title = f"ValPulse 估值周报 {report_date}"
+    content = build_summary(records, holdings, port_temp, mkt_temp,
+                            os.environ.get("REPORT_URL") or None)
     if failed:
-        content += (f'<p style="color:#c62828">注意：{len(failed)} 个指数'
+        content += (f'<p style="color:#c62828">注意：{len(failed)} 个标的'
                     f"抓取失败：{'、'.join(failed)}</p>")
     push_summary(title, content)
     return 0

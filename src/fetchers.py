@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
-"""数据抓取模块：乐咕（A股 PE/PB）、中证官方（PE 兜底）、腾讯（行情）、multpl（标普500）、乐咕恒生专题页"""
+"""数据抓取模块：乐咕（A股 PE/PB）、中证官方（PE 兜底/A500与券商主源）、腾讯（行情）、multpl（标普500）、乐咕恒生专题页、东财（黄金K线/跨境兜底）"""
 import logging
 import re
 import time
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 
 import requests
 from bs4 import BeautifulSoup
@@ -181,6 +181,81 @@ def eastmoney_symbol(index_code: str) -> str:
     table = {"SPX": "100.SPX", "HSTECH": "124.HSTECH", "NDX": "100.NDX",
              "HSI": "124.HSI"}
     return table.get(index_code, "")
+
+
+def fetch_gold_history(start: str = "20160101") -> list:
+    """上海金 Au99.99 日线历史：东方财富 118.AU9999 为主，新浪财经为备。
+
+    黄金没有 PE/PB（无盈利与净资产概念），仅返回收盘价序列。
+    """
+    rows = _fetch_gold_eastmoney(start)
+    if not rows:
+        log.info("东财黄金K线无数据，切换新浪源")
+        rows = _fetch_gold_sina()
+    return rows
+
+
+def _fetch_gold_eastmoney(start: str) -> list:
+    """东财 K 线（主源），被限流时换延迟镜像域名"""
+    for host in ("push2his.eastmoney.com", "push2delay.eastmoney.com"):
+        try:
+            r = requests.get(
+                f"https://{host}/api/qt/stock/kline/get",
+                params={"secid": "118.AU9999", "klt": "101", "fqt": "1",
+                        "beg": start, "end": "20500101",
+                        "fields1": "f1,f2,f3,f4,f5,f6",
+                        "fields2": "f51,f52,f53,f54,f55,f56,f57"},
+                headers=BASE_HEADERS, timeout=30)
+            klines = (r.json().get("data") or {}).get("klines") or []
+            rows = []
+            for line in klines:
+                parts = line.split(",")
+                if len(parts) >= 3:
+                    rows.append({"date": parts[0], "price": _num(parts[2])})
+            rows.sort(key=lambda x: x["date"])
+            if rows:
+                log.info("黄金 Au99.99 历史 %d 行（东财 %s）", len(rows), host)
+                return rows
+        except (requests.RequestException, ValueError) as e:
+            log.warning("东财黄金K线失败 %s: %s", host, e)
+    return []
+
+
+def _fetch_gold_sina(start: str = "20160101") -> list:
+    """新浪财经 Au99.99 历史交易（兜底源）。
+
+    页面支持 start/end 区间查询但单次上限约 40 行，
+    因此按 40 天分段从 start 翻到今天拼全历史。
+    """
+    try:
+        rows, seen = [], set()
+        cur = datetime.strptime(start, "%Y%m%d").date()
+        end = date.today()
+        while cur <= end:
+            seg_end = min(cur + timedelta(days=40), end)
+            r = requests.get(
+                "https://vip.stock.finance.sina.com.cn/q/view/vGold_History.php",
+                params={"breed": "AU9999",
+                        "start": cur.isoformat(), "end": seg_end.isoformat()},
+                headers=BASE_HEADERS, timeout=20)
+            soup = BeautifulSoup(r.text, "lxml")
+            for tr in soup.find_all("tr"):
+                tds = tr.find_all("td")
+                if len(tds) < 5:
+                    continue
+                dt = tds[0].get_text(strip=True)
+                close = _num(tds[4].get_text(strip=True))
+                if close and dt[:4].isdigit() and dt not in seen:
+                    seen.add(dt)
+                    rows.append({"date": dt, "price": close})
+            cur = seg_end + timedelta(days=1)
+        rows.sort(key=lambda x: x["date"])
+        if rows:
+            log.info("黄金 Au99.99 历史 %d 行（新浪分段）", len(rows))
+        return rows
+    except (requests.RequestException, ValueError) as e:
+        log.warning("新浪黄金历史失败: %s", e)
+        return []
 
 
 def fetch_multpl_spx() -> list:
