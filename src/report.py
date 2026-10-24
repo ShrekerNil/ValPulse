@@ -108,8 +108,8 @@ footer p{margin:4px 0}
   </div>
   <table id="valTable">
     <thead><tr>
-      <th>指数</th><th>PE</th><th>PE分位</th><th>状态</th>
-      <th>PB</th><th>PB分位</th><th>状态</th><th>日涨跌</th>
+      <th>指数</th><th>PE</th><th>PE分位</th><th>PE分级</th>
+      <th>PB</th><th>PB分位</th><th>PB分级</th><th>日涨跌</th>
     </tr></thead>
     <tbody></tbody>
   </table>
