@@ -160,7 +160,11 @@ def save_series_to_db(conn, raw: dict):
                            [{"date": r["date"], "value": r[PB_KEY]} for r in entry["pb"]
                             if isinstance(r.get(PB_KEY), (int, float)) and r[PB_KEY] > 0])
         if entry.get("price_series"):
-            db.save_series(conn, code, "price", entry["price_series"])
+            # 注意字段名转换：fetchers 返回 price，db 层统一用 value
+            db.save_series(conn, code, "price",
+                           [{"date": r["date"], "value": r["price"]}
+                            for r in entry["price_series"]
+                            if r.get("price") is not None])
 
 
 def _run() -> int:
