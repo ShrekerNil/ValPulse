@@ -43,6 +43,13 @@ def _cell_band(band_cn: str, band: str) -> str:
     return f'<b style="color:{color}">{band_cn}</b>'
 
 
+def _cell_pb_band(r: dict) -> str:
+    """PB 分级单元格：数据源不提供 PB 时显示明确文案而非「数据不足」"""
+    if r.get("pb_value") is None:
+        return '<span style="color:#757575">无PB数据</span>'
+    return _cell_band(r.get("pb_band_cn", "-"), r.get("pb_band"))
+
+
 def _cell_chg(chg) -> str:
     if not isinstance(chg, (int, float)):
         return "-"
@@ -118,7 +125,7 @@ def build_summary(records: list, holdings: list, port_temp: dict,
             f"<td>{_pct(r.get('pe_percentile'))}</td>"
             f"<td>{_cell_band(r.get('pe_band_cn', '-'), r.get('pe_band'))}</td>"
             f"<td>{_fmt(r.get('pb_value'))}</td><td>{_pct(r.get('pb_percentile'))}</td>"
-            f"<td>{_cell_band(r.get('pb_band_cn', '-'), r.get('pb_band'))}</td>"
+            f"<td>{_cell_pb_band(r)}</td>"
             f"<td>{_cell_chg(r.get('change_pct'))}</td>"
             "</tr>"
         )
@@ -135,8 +142,8 @@ def build_summary(records: list, holdings: list, port_temp: dict,
             f'（走势图 / 历史日期回看）</a></p>') if report_url else ""
     table_head = (
         '<tr style="background:#f5f5f5">'
-        '<th>指数</th><th>PE</th><th>PE分位</th><th>状态</th>'
-        '<th>PB</th><th>PB分位</th><th>状态</th><th>日涨跌</th></tr>')
+        '<th>指数</th><th>PE</th><th>PE分位</th><th>PE分级</th>'
+        '<th>PB</th><th>PB分位</th><th>PB分级</th><th>日涨跌</th></tr>')
     return (
         '<html><body style="font-family:sans-serif;font-size:14px;color:#333">'
         "<h3>我的持仓</h3>"
@@ -156,6 +163,7 @@ def build_summary(records: list, holdings: list, port_temp: dict,
         + f"<p>{'<br>'.join(notes)}</p>"
         + link
         + '<p style="color:#999;font-size:12px">分位基于近10年历史；'
+          "「无PB数据」为数据源不提供该指标，非系统缺数；"
           "定投信号为规则化提示，不构成投资建议</p>"
         "</body></html>"
     )

@@ -105,7 +105,7 @@ footer p{margin:4px 0}
 </section>
 
 <footer>
-  <p>免责声明：本看板数据来源于公开渠道，分位与信号均为历史统计口径，不构成任何投资建议。市场有风险，投资需谨慎。</p>
+  <p>免责声明：本看板数据来源于公开渠道，分位与信号均为历史统计口径，不构成任何投资建议。市场有风险，投资需谨慎。「无PB数据」表示该指数的数据源不提供 PB 指标，非系统缺数。</p>
   <p>数据源：乐咕乐股（A股 PE/PB）、中证指数官网（PE）、腾讯行情、东方财富（黄金/跨境）、multpl.com（标普500）、恒生指数公司（恒生科技）。</p>
   <p>ValPulse 每周六自动生成 · 报告日期 2026-10-24</p>
 </footer>
@@ -251,8 +251,10 @@ function renderTable(recs){
         ${gold?`<td colspan="3" style="text-align:left;color:#757575">金价 ${fmt(r.price)} 元/克 · 价格分位 ${pctTxt(r.price_pct)}</td>`
               :`<td>${fmt(r.pe)}</td><td>${pctTxt(r.pe_pct)}</td>
                 <td><span class="pill" style="color:${BAND[r.pe_band].color};background:${BAND[r.pe_band].bg}">${BAND[r.pe_band].cn}</span></td>`}
-        <td>${gold?"—":fmt(r.pb)}</td><td>${gold?"—":pctTxt(r.pb_pct)}</td>
-        <td>${gold?"—":`<span class="pill" style="color:${BAND[r.pb_band].color};background:${BAND[r.pb_band].bg}">${BAND[r.pb_band].cn}</span></td>`}
+        <td>${gold||r.pb==null?"—":fmt(r.pb)}</td>
+        <td>${gold||r.pb==null?"—":pctTxt(r.pb_pct)}</td>
+        <td>${gold?"—":(r.pb==null?'<span style="color:#757575">无PB数据</span>'
+            :`<span class="pill" style="color:${BAND[r.pb_band].color};background:${BAND[r.pb_band].bg}">${BAND[r.pb_band].cn}</span>`)}</td>
         ${chgCell(r.change_pct)}</tr>`;
     }
   }
