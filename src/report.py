@@ -70,7 +70,7 @@ td.up{color:var(--up)} td.down{color:var(--down)}
 .toolbar .grp{display:flex;border:1px solid var(--line);border-radius:6px;overflow:hidden}
 .toolbar .grp button{border:0;background:#fff;padding:4px 12px;font-size:12px;cursor:pointer}
 .toolbar .grp button.on{background:#1565c0;color:#fff}
-#mainChart{height:420px}
+#mainChart{height:420px;margin-top:22px;padding-top:16px;border-top:2px solid var(--line)}
 .legend{display:flex;flex-wrap:wrap;gap:12px;font-size:12px;color:var(--ink2);margin-top:8px}
 footer{margin-top:26px;font-size:12px;color:var(--ink2);border-top:1px solid var(--line);padding-top:14px}
 footer p{margin:4px 0}
@@ -304,7 +304,7 @@ function renderMain(){
     markLine.push({yAxis:rec.price,label:{formatter:`当前 ${fmt(rec.price)}`,position:"insideEndTop"}});
   mainChart.setOption({
     animation:false,
-    title:{text:`${name} · ${metricName}（近${WINDOW_YEARS}年）`,textStyle:{fontSize:14}},
+    title:{text:`${name} · ${metricName}（近${WINDOW_YEARS}年）`,left:"center",textStyle:{fontSize:14}},
     grid:{left:56,right:16,top:42,bottom:28},
     tooltip:{trigger:"axis",axisPointer:{type:"cross",crossStyle:{color:"#999"},
       label:{backgroundColor:"#546e7a"}},
