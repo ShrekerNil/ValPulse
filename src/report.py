@@ -251,9 +251,9 @@ function rowHtml(r){
   return `<tr${sel} data-code="${r.code}">
     <td>${r.name}</td>
     ${gold?`<td colspan="2" style="text-align:left;color:#757575">金价 ${fmt(r.price)} 元/克 · 价格分位 ${pctTxt(r.price_pct)}</td>`
-          :`<td style="color:${peColor};font-weight:600">${fmt(r.pe)}</td><td>${pctTxt(r.pe_pct)}</td>`}
+          :`<td style="color:${peColor};font-weight:600">${fmt(r.pe)}</td><td style="color:${peColor}">${pctTxt(r.pe_pct)}</td>`}
     <td style="color:${pbColor};font-weight:600"${r.pb==null?' title="数据源不提供 PB"':''}>${gold||r.pb==null?'—':fmt(r.pb)}</td>
-    <td>${gold||r.pb==null?'—':pctTxt(r.pb_pct)}</td>
+    <td style="color:${pbColor}">${gold||r.pb==null?'—':pctTxt(r.pb_pct)}</td>
     ${chgCell(r.change_pct)}</tr>`;
 }
 function renderTable(recs){

@@ -114,9 +114,9 @@ def build_summary(records: list, holdings: list, port_temp: dict,
             "<tr>"
             f"<td>{r['name']}</td>"
             f"<td><span style='color:{pe_color};font-weight:600'>{_fmt(r.get('pe_value'))}</span></td>"
-            f"<td>{_pct(r.get('pe_percentile'))}</td>"
+            f"<td><span style='color:{pe_color}'>{_pct(r.get('pe_percentile'))}</span></td>"
             f"<td><span style='color:{pb_color};font-weight:600'>{'-' if pb_none else _fmt(r.get('pb_value'))}</span></td>"
-            f"<td>{_pct(r.get('pb_percentile'))}</td>"
+            f"<td><span style='color:{pb_color}'>{'-' if pb_none else _pct(r.get('pb_percentile'))}</span></td>"
             f"<td>{_cell_chg(r.get('change_pct'))}</td>"
             "</tr>"
         )
