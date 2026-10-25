@@ -38,18 +38,6 @@ SIGNAL_LABELS = {
 }
 
 
-def _cell_band(band_cn: str, band: str) -> str:
-    color = BAND_COLORS.get(band, "#757575")
-    return f'<b style="color:{color}">{band_cn}</b>'
-
-
-def _cell_pb_band(r: dict) -> str:
-    """PB 分级单元格：数据源不提供 PB 时显示明确文案而非「数据不足」"""
-    if r.get("pb_value") is None:
-        return '<span style="color:#757575">无PB数据</span>'
-    return _cell_band(r.get("pb_band_cn", "-"), r.get("pb_band"))
-
-
 def _cell_chg(chg) -> str:
     if not isinstance(chg, (int, float)):
         return "-"
@@ -112,20 +100,23 @@ def build_summary(records: list, holdings: list, port_temp: dict,
             rows.append(
                 "<tr>"
                 f"<td>{r['name']}</td>"
-                f'<td colspan="3">金价 {_fmt(r.get("price"))} 元/克 · '
+                f'<td colspan="2">金价 {_fmt(r.get("price"))} 元/克 · '
                 f'价格分位 {_pct(r.get("price_percentile"))}</td>'
-                f'<td colspan="3">黄金无 PE/PB 估值概念</td>'
+                f'<td colspan="2" style="color:#757575">黄金无 PE/PB 估值概念</td>'
                 f"<td>{_cell_chg(r.get('change_pct'))}</td>"
                 "</tr>"
             )
             continue
+        pe_color = BAND_COLORS.get(r.get("pe_band"), "#757575")
+        pb_none = r.get("pb_value") is None
+        pb_color = "#757575" if pb_none else BAND_COLORS.get(r.get("pb_band"), "#757575")
         rows.append(
             "<tr>"
-            f"<td>{r['name']}</td><td>{_fmt(r.get('pe_value'))}</td>"
+            f"<td>{r['name']}</td>"
+            f"<td><span style='color:{pe_color};font-weight:600'>{_fmt(r.get('pe_value'))}</span></td>"
             f"<td>{_pct(r.get('pe_percentile'))}</td>"
-            f"<td>{_cell_band(r.get('pe_band_cn', '-'), r.get('pe_band'))}</td>"
-            f"<td>{_fmt(r.get('pb_value'))}</td><td>{_pct(r.get('pb_percentile'))}</td>"
-            f"<td>{_cell_pb_band(r)}</td>"
+            f"<td><span style='color:{pb_color};font-weight:600'>{'-' if pb_none else _fmt(r.get('pb_value'))}</span></td>"
+            f"<td>{_pct(r.get('pb_percentile'))}</td>"
             f"<td>{_cell_chg(r.get('change_pct'))}</td>"
             "</tr>"
         )
@@ -142,8 +133,8 @@ def build_summary(records: list, holdings: list, port_temp: dict,
             f'（走势图 / 历史日期回看）</a></p>') if report_url else ""
     table_head = (
         '<tr style="background:#f5f5f5">'
-        '<th>指数</th><th>PE</th><th>PE分位</th><th>PE分级</th>'
-        '<th>PB</th><th>PB分位</th><th>PB分级</th><th>日涨跌</th></tr>')
+        '<th>指数</th><th>PE</th><th>PE分位</th>'
+        '<th>PB</th><th>PB分位</th><th>日涨跌</th></tr>')
     return (
         '<html><body style="font-family:sans-serif;font-size:14px;color:#333">'
         "<h3>我的持仓</h3>"

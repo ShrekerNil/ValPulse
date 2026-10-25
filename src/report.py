@@ -108,8 +108,7 @@ footer p{margin:4px 0}
   </div>
   <table id="valTable">
     <thead><tr>
-      <th>指数</th><th>PE</th><th>PE分位</th><th>PE分级</th>
-      <th>PB</th><th>PB分位</th><th>PB分级</th><th>日涨跌</th>
+      <th>指数</th><th>PE</th><th>PE分位</th><th>PB</th><th>PB分位</th><th>日涨跌</th>
     </tr></thead>
     <tbody></tbody>
   </table>
@@ -246,15 +245,15 @@ function renderCards(recs){
 function rowHtml(r){
   const gold=isGold(r.code);
   const sel=r.code===curCode?' class="data sel"':' class="data"';
+  // PE/PB 数值本身按分级着色，不再单列分级列
+  const peColor=gold?'#757575':BAND[r.pe_band].color;
+  const pbColor=(gold||r.pb==null)?'#757575':BAND[r.pb_band].color;
   return `<tr${sel} data-code="${r.code}">
     <td>${r.name}</td>
-    ${gold?`<td colspan="3" style="text-align:left;color:#757575">金价 ${fmt(r.price)} 元/克 · 价格分位 ${pctTxt(r.price_pct)}</td>`
-          :`<td>${fmt(r.pe)}</td><td>${pctTxt(r.pe_pct)}</td>
-            <td><span class="pill" style="color:${BAND[r.pe_band].color};background:${BAND[r.pe_band].bg}">${BAND[r.pe_band].cn}</span></td>`}
-    <td>${gold||r.pb==null?"—":fmt(r.pb)}</td>
-    <td>${gold||r.pb==null?"—":pctTxt(r.pb_pct)}</td>
-    <td>${gold?"—":(r.pb==null?'<span style="color:#757575">无PB数据</span>'
-        :`<span class="pill" style="color:${BAND[r.pb_band].color};background:${BAND[r.pb_band].bg}">${BAND[r.pb_band].cn}</span>`)}</td>
+    ${gold?`<td colspan="2" style="text-align:left;color:#757575">金价 ${fmt(r.price)} 元/克 · 价格分位 ${pctTxt(r.price_pct)}</td>`
+          :`<td style="color:${peColor};font-weight:600">${fmt(r.pe)}</td><td>${pctTxt(r.pe_pct)}</td>`}
+    <td style="color:${pbColor};font-weight:600"${r.pb==null?' title="数据源不提供 PB"':''}>${gold||r.pb==null?'—':fmt(r.pb)}</td>
+    <td>${gold||r.pb==null?'—':pctTxt(r.pb_pct)}</td>
     ${chgCell(r.change_pct)}</tr>`;
 }
 function renderTable(recs){
@@ -264,15 +263,19 @@ function renderTable(recs){
     const r=recs[code];
     (groups[r.category]=groups[r.category]||[]).push(r);
   }
-  // 排序：无PB的权益指数沉到所属板块末尾，其余按 PE 分位降序
-  const noPb=r=>(!isGold(r.code) && r.pb==null)?1:0;
+  // 排序：按估值分级 低估→合理→偏高→高估，无值（缺指标）沉底；同分级内无PB的置于其后
+  const bandRank=b=>({"低估":0,"合理":1,"偏高":2,"高估":3}[b] ?? 4);
+  const sortKey=r=>{
+    const pr=bandRank(r.pe_band);
+    const nb=(!isGold(r.code) && r.pb==null)?1:0;
+    return pr*2 + nb;
+  };
   let html="";
   const keys=order.concat(Object.keys(groups).filter(k=>order.indexOf(k)<0));
   for(const g of keys){
     if(!groups[g]) continue;
-    const rows=groups[g].sort((a,b)=>
-      (noPb(a)-noPb(b)) || ((b.pe_pct==null?-1:b.pe_pct)-(a.pe_pct==null?-1:a.pe_pct)));
-    html+=`<tr class="cat"><td colspan="8">${g}</td></tr>`;
+    const rows=groups[g].sort((a,b)=>sortKey(a)-sortKey(b));
+    html+=`<tr class="cat"><td colspan="6">${g}</td></tr>`;
     for(const r of rows) html+=rowHtml(r);
   }
   $("#valTable tbody").innerHTML=html;
