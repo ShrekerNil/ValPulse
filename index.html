@@ -57,7 +57,7 @@ td.up{color:var(--up)} td.down{color:var(--down)}
 .toolbar .grp{display:flex;border:1px solid var(--line);border-radius:6px;overflow:hidden}
 .toolbar .grp button{border:0;background:#fff;padding:4px 12px;font-size:12px;cursor:pointer}
 .toolbar .grp button.on{background:#1565c0;color:#fff}
-#mainChart{height:420px}
+#mainChart{height:420px;margin-top:22px;padding-top:16px;border-top:2px solid var(--line)}
 .legend{display:flex;flex-wrap:wrap;gap:12px;font-size:12px;color:var(--ink2);margin-top:8px}
 footer{margin-top:26px;font-size:12px;color:var(--ink2);border-top:1px solid var(--line);padding-top:14px}
 footer p{margin:4px 0}
@@ -95,8 +95,7 @@ footer p{margin:4px 0}
   </div>
   <table id="valTable">
     <thead><tr>
-      <th>指数</th><th>PE</th><th>PE分位</th><th>PE分级</th>
-      <th>PB</th><th>PB分位</th><th>PB分级</th><th>日涨跌</th>
+      <th>指数</th><th>PE</th><th>PE分位</th><th>PB</th><th>PB分位</th><th>日涨跌</th>
     </tr></thead>
     <tbody></tbody>
   </table>
@@ -107,7 +106,7 @@ footer p{margin:4px 0}
 <footer>
   <p>免责声明：本看板数据来源于公开渠道，分位与信号均为历史统计口径，不构成任何投资建议。市场有风险，投资需谨慎。「无PB数据」表示该指数的数据源不提供 PB 指标，非系统缺数。</p>
   <p>数据源：乐咕乐股（A股 PE/PB）、中证指数官网（PE）、腾讯行情、东方财富（黄金/跨境）、multpl.com（标普500）、恒生指数公司（恒生科技）。</p>
-  <p>ValPulse 每周六自动生成 · 报告日期 2026-10-25</p>
+  <p>ValPulse 每周六自动生成 · 报告日期 2026-10-29</p>
 </footer>
 </div>
 
@@ -233,15 +232,15 @@ function renderCards(recs){
 function rowHtml(r){
   const gold=isGold(r.code);
   const sel=r.code===curCode?' class="data sel"':' class="data"';
+  // PE/PB 数值本身按分级着色，不再单列分级列
+  const peColor=gold?'#757575':BAND[r.pe_band].color;
+  const pbColor=(gold||r.pb==null)?'#757575':BAND[r.pb_band].color;
   return `<tr${sel} data-code="${r.code}">
     <td>${r.name}</td>
-    ${gold?`<td colspan="3" style="text-align:left;color:#757575">金价 ${fmt(r.price)} 元/克 · 价格分位 ${pctTxt(r.price_pct)}</td>`
-          :`<td>${fmt(r.pe)}</td><td>${pctTxt(r.pe_pct)}</td>
-            <td><span class="pill" style="color:${BAND[r.pe_band].color};background:${BAND[r.pe_band].bg}">${BAND[r.pe_band].cn}</span></td>`}
-    <td>${gold||r.pb==null?"—":fmt(r.pb)}</td>
-    <td>${gold||r.pb==null?"—":pctTxt(r.pb_pct)}</td>
-    <td>${gold?"—":(r.pb==null?'<span style="color:#757575">无PB数据</span>'
-        :`<span class="pill" style="color:${BAND[r.pb_band].color};background:${BAND[r.pb_band].bg}">${BAND[r.pb_band].cn}</span>`)}</td>
+    ${gold?`<td colspan="2" style="text-align:left;color:#757575">金价 ${fmt(r.price)} 元/克 · 价格分位 ${pctTxt(r.price_pct)}</td>`
+          :`<td style="color:${peColor};font-weight:600">${fmt(r.pe)}</td><td style="color:${peColor}">${pctTxt(r.pe_pct)}</td>`}
+    <td style="color:${pbColor};font-weight:600"${r.pb==null?' title="数据源不提供 PB"':''}>${gold||r.pb==null?'—':fmt(r.pb)}</td>
+    <td style="color:${pbColor}">${gold||r.pb==null?'—':pctTxt(r.pb_pct)}</td>
     ${chgCell(r.change_pct)}</tr>`;
 }
 function renderTable(recs){
@@ -251,15 +250,19 @@ function renderTable(recs){
     const r=recs[code];
     (groups[r.category]=groups[r.category]||[]).push(r);
   }
-  // 排序：无PB的权益指数沉到所属板块末尾，其余按 PE 分位降序
-  const noPb=r=>(!isGold(r.code) && r.pb==null)?1:0;
+  // 排序：按估值分级 低估→合理→偏高→高估，无值（缺指标）沉底；同分级内无PB的置于其后
+  const bandRank=b=>({"低估":0,"合理":1,"偏高":2,"高估":3}[b] ?? 4);
+  const sortKey=r=>{
+    const pr=bandRank(r.pe_band);
+    const nb=(!isGold(r.code) && r.pb==null)?1:0;
+    return pr*2 + nb;
+  };
   let html="";
   const keys=order.concat(Object.keys(groups).filter(k=>order.indexOf(k)<0));
   for(const g of keys){
     if(!groups[g]) continue;
-    const rows=groups[g].sort((a,b)=>
-      (noPb(a)-noPb(b)) || ((b.pe_pct==null?-1:b.pe_pct)-(a.pe_pct==null?-1:a.pe_pct)));
-    html+=`<tr class="cat"><td colspan="8">${g}</td></tr>`;
+    const rows=groups[g].sort((a,b)=>sortKey(a)-sortKey(b));
+    html+=`<tr class="cat"><td colspan="6">${g}</td></tr>`;
     for(const r of rows) html+=rowHtml(r);
   }
   $("#valTable tbody").innerHTML=html;
@@ -291,7 +294,7 @@ function renderMain(){
     markLine.push({yAxis:rec.price,label:{formatter:`当前 ${fmt(rec.price)}`,position:"insideEndTop"}});
   mainChart.setOption({
     animation:false,
-    title:{text:`${name} · ${metricName}（近${WINDOW_YEARS}年）`,textStyle:{fontSize:14}},
+    title:{text:`${name} · ${metricName}（近${WINDOW_YEARS}年）`,left:"center",textStyle:{fontSize:14}},
     grid:{left:56,right:16,top:42,bottom:28},
     tooltip:{trigger:"axis",axisPointer:{type:"cross",crossStyle:{color:"#999"},
       label:{backgroundColor:"#546e7a"}},
