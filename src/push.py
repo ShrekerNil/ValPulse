@@ -115,6 +115,7 @@ def build_summary(records: list, holdings: list, port_temp: dict,
             f"<td>{r['name']}</td>"
             f"<td><span style='color:{pe_color};font-weight:600'>{_fmt(r.get('pe_value'))}</span></td>"
             f"<td><span style='color:{pe_color}'>{_pct(r.get('pe_percentile'))}</span></td>"
+            f"<td style='background:#f5f5f5;color:#999;font-size:11px'>│</td>"
             f"<td><span style='color:{pb_color};font-weight:600'>{'-' if pb_none else _fmt(r.get('pb_value'))}</span></td>"
             f"<td><span style='color:{pb_color}'>{'-' if pb_none else _pct(r.get('pb_percentile'))}</span></td>"
             f"<td>{_cell_chg(r.get('change_pct'))}</td>"
@@ -134,6 +135,7 @@ def build_summary(records: list, holdings: list, port_temp: dict,
     table_head = (
         '<tr style="background:#f5f5f5">'
         '<th>指数</th><th>PE</th><th>PE分位</th>'
+        '<th style="background:#f5f5f5;color:#999;font-size:11px">│</th>'
         '<th>PB</th><th>PB分位</th><th>日涨跌</th></tr>')
     return (
         '<html><body style="font-family:sans-serif;font-size:14px;color:#333">'

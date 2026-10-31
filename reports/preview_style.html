@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>样式预览</title>
+<style>
+  body{font-family:"Microsoft YaHei","PingFang SC","Noto Sans CJK SC",sans-serif;background:#f5f6f8;color:#212121;margin:40px}
+  table{width:100%;border-collapse:collapse;font-size:13px;margin:20px 0}
+  th,td{padding:7px 8px;text-align:right;border-bottom:1px solid #e0e0e0;font-variant-numeric:tabular-nums;white-space:nowrap}
+  th{background:#fafafa;color:#616161;font-weight:600}
+  th:first-child,td:first-child{text-align:left}
+  tr.cat td{background:#eceff1;font-weight:700;text-align:left;color:#37474f}
+  /* 分组竖线：每组左右各一道，#e0e0e0 为细竖线 */
+  .pe-value,.pe-pct,.pb-value,.pb-pct{border-left:1px solid #e0e0e0;border-right:1px solid #e0e0e0}
+</style>
+</head>
+<body>
+<h2 style="margin:40px 0 16px;border-left:4px solid #1565c0;padding-left:10px;font-size:17px">估值表 — 分组竖线预览</h2>
+<table>
+  <thead><tr>
+    <th>指数</th><th>PE</th><th>PE分位</th><th>PB</th><th>PB分位</th><th>日涨跌</th>
+  </tr></thead>
+  <tbody>
+    <tr class="cat"><td colspan="6">宽基</td></tr>
+    <tr>
+      <td>沪深300</td>
+      <td class="pe-value">12.50</td><td class="pe-pct">15%</td>
+      <td class="pb-value">0.85</td><td class="pb-pct">40%</td>
+      <td>+0.12%</td>
+    </tr>
+    <tr>
+      <td>中证500</td>
+      <td class="pe-value">8.20</td><td class="pe-pct">5%</td>
+      <td class="pb-value">0.62</td><td class="pb-pct">12%</td>
+      <td>-0.34%</td>
+    </tr>
+    <tr class="cat"><td colspan="6">行业</td></tr>
+    <tr>
+      <td>中证全指半导体</td>
+      <td class="pe-value">20.06</td><td class="pe-pct">72%</td>
+      <td class="pb-value">3.55</td><td class="pb-pct">61%</td>
+      <td>+1.26%</td>
+    </tr>
+    <tr>
+      <td>中证银行</td>
+      <td class="pe-value">7.10</td><td class="pe-pct">8%</td>
+      <td class="pb-value">0.78</td><td class="pb-pct">25%</td>
+      <td>+0.45%</td>
+    </tr>
+  </tbody>
+</table>
+<p style="font-size:11px;color:#909090;margin-top:20px">PE 组左右各一道竖线 · PB 组左右各一道竖线 · 竖线连续贯穿表格。数据为模拟值。</p>
+</body>
+</html>
