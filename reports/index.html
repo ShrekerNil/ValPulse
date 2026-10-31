@@ -7,60 +7,77 @@
 <script src="assets/echarts.min.js"></script>
 <style>
 :root{
-  --up:#c62828; --down:#2e7d32;           /* A股惯例：涨红跌绿 */
-  --ink:#212121; --ink2:#616161; --line:#e0e0e0; --bg:#f5f6f8; --card:#ffffff;
+  --up:#ff7859; --down:#28c940;
+  --bg:#0e1117; --card:#161a20; --card-hover:#1e232a; --accent:#06b6d4;
+  --ink:#f1f5f9; --ink2:#98a2b3; --muted:#4a5568; --line:#30363d; --border:#484f56;
+  --band-low:#38a169; --band-fair:#63b3ed; --band-high:#f6ad55; --band-over:#e53e3e;
 }
 *{box-sizing:border-box;margin:0;padding:0}
-body{font-family:"Microsoft YaHei","PingFang SC","Noto Sans CJK SC",sans-serif;
-  background:var(--bg);color:var(--ink);line-height:1.6}
-.wrap{max-width:1080px;margin:0 auto;padding:20px 16px 60px}
+body{font-family:"JetBrains Mono","Noto Sans CJK SC","Microsoft YaHei",sans-serif;
+  background:var(--bg);color:var(--ink);line-height:1.4;background-image:linear-gradient(var(--line) 1px,transparent 1px),linear-gradient(90deg,var(--line) 1px,transparent 1px);background-size:40px 40px;background-position:center center}
+.wrap{max-width:1280px;margin:0 auto;padding:16px 20px 60px}
 header{display:flex;flex-wrap:wrap;align-items:baseline;gap:12px;padding:8px 0 4px}
-h1{font-size:22px}
-h2{font-size:17px;margin:26px 0 12px;padding-left:10px;border-left:4px solid #1565c0}
+h1{font-size:28px;font-weight:900;letter-spacing:2px;color:var(--accent);text-shadow:0 0 15px rgba(0,212,170,.4)}
+
 .sub{color:var(--ink2);font-size:13px}
 select{padding:4px 8px;border:1px solid var(--line);border-radius:6px;background:#fff;font-size:13px}
-.notice{background:#fff8e1;border:1px solid #ffe082;border-radius:8px;
-  padding:8px 12px;font-size:12px;color:#795548;margin:10px 0}
-section{background:var(--card);border:1px solid var(--line);border-radius:12px;
-  padding:18px 20px;margin-top:16px}
+.notice{background:var(--card-hover);border:1px solid var(--border);
+  border-radius:12px;padding:12px 16px;margin:12px 0;font-size:13px}
+.notice b{color:var(--accent)}
+section{background:var(--card);border:1px solid var(--border);border-radius:16px;
+  padding:20px;margin-top:16px}
+section h2{font-size:20px;font-weight:700;margin:0 0 16px;padding-bottom:10px;border-bottom:3px solid var(--accent);text-align:center;letter-spacing:4px}
+section:first-child{margin-top:0}
 /* 组合 / 大盘温度条 */
-.tempbar{display:flex;flex-wrap:wrap;align-items:center;gap:16px;
-  background:linear-gradient(90deg,#e8f5e9,#e3f2fd,#fff3e0,#ffebee);
-  border-radius:10px;padding:14px 18px;margin-bottom:14px}
-.tempbar .t{font-size:34px;font-weight:700}
-.tempbar .meta{font-size:13px;color:var(--ink2)}
+.tempbar{display:flex;flex-wrap:wrap;align-items:center;gap:12px;
+  background:var(--card);border-radius:10px;padding:14px 16px;margin-bottom:14px}
+.tempbar .t{font-size:42px;font-weight:900;color:#00ffcc;text-shadow:0 0 20px rgba(0,255,204,.5)}
+.tempbar .meta{font-size:12px;color:var(--ink2)}
 .tempbar .meta b{color:var(--ink)}
 /* 持仓卡片 */
-.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px}
-.card{border:1px solid var(--line);border-radius:10px;padding:14px 16px;background:#fff}
-.card .fund{font-size:14px;font-weight:600}
-.card .idx{font-size:12px;color:var(--ink2);margin-bottom:8px}
-.kv{display:flex;justify-content:space-between;font-size:13px;padding:3px 0}
-.kv .v{font-variant-numeric:tabular-nums}
-.pill{display:inline-block;padding:1px 10px;border-radius:20px;font-size:12px;font-weight:600}
-.spark{height:56px;margin:8px -6px 4px}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:10px}
+.card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px;transition:box-shadow .2s}
+.card:hover{box-shadow:0 2px 8px rgba(0,0,0,.2)}
+.card .fund{font-size:15px;font-weight:800;margin-bottom:8px}
+.card .idx{font-size:11px;color:var(--ink2);margin-bottom:6px}
+.card .kv{display:flex;justify-content:space-between;font-size:12px;padding:4px 0}
+.card .kv span{color:var(--ink2)}
+.pill{display:inline-block;padding:2px 8px;border-radius:14px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px}
+.pill.low{color:var(--band-low);background:rgba(56,161,105,.15)}
+.pill.fair{color:var(--band-fair);background:rgba(99,179,237,.15)}
+.pill.high{color:var(--band-high);background:rgba(246,173,85,.15)}
+.pill.over{color:var(--band-over);background:rgba(229,62,62,.15)}
+.spark{height:48px;margin:6px -4px 4px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:6px;box-shadow:inset 0 0 10px rgba(0,212,170,.05)}
 .sig{margin-top:8px;font-size:13px;padding:8px 10px;border-radius:8px;background:#f5f5f5}
-.sig b{display:block}
-.sig .d{font-size:12px;color:var(--ink2)}
 /* 估值表 */
-table{width:100%;border-collapse:collapse;font-size:13px;margin-top:6px}
-th,td{padding:7px 8px;text-align:right;border-bottom:1px solid var(--line);
+table{width:100%;border-collapse:collapse;font-size:12px;margin-top:8px;color:#d0e0f0}
+th,td{padding:6px 8px;text-align:right;border-bottom:1px solid var(--border);
   font-variant-numeric:tabular-nums;white-space:nowrap}
 th:first-child,td:first-child{text-align:left}
-th{background:#fafafa;color:var(--ink2);font-weight:600}
-tr.cat td{background:#eceff1;font-weight:700;text-align:left;color:#37474f}
-tbody tr.data:hover{background:#f5f9ff;cursor:pointer}
-tbody tr.data.sel{background:#e3f2fd}
+th{background:rgba(0,212,170,.1);color:#e8f8ff;font-weight:700;text-shadow:0 0 6px rgba(0,212,170,.3)}
+tr.cat td{background:var(--card-hover);font-weight:700;text-align:left;color:var(--muted)}
+tbody tr.data:hover{background:var(--card-hover);cursor:pointer}
+tbody tr.data.sel{background:rgba(6,182,212,.15)}
 td.up{color:var(--up)} td.down{color:var(--down)}
+td.null{color:var(--muted)}
 /* 主图 */
-.toolbar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin:14px 0 6px}
-.toolbar .grp{display:flex;border:1px solid var(--line);border-radius:6px;overflow:hidden}
-.toolbar .grp button{border:0;background:#fff;padding:4px 12px;font-size:12px;cursor:pointer}
-.toolbar .grp button.on{background:#1565c0;color:#fff}
-#mainChart{height:420px;margin-top:22px;padding-top:16px;border-top:2px solid var(--line)}
+.toolbar{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0 6px}
+.toolbar .grp{display:flex;border:1px solid var(--border);border-radius:6px;overflow:hidden}
+.toolbar .grp button{border:0;background:var(--card);padding:6px 14px;font-size:12px;cursor:pointer}
+.toolbar .grp button.on{background:var(--accent);color:#fff}
+#mainChart{height:460px;margin:18px 0 12px;padding:12px;border-radius:12px;border:1px solid var(--border)}
 .legend{display:flex;flex-wrap:wrap;gap:12px;font-size:12px;color:var(--ink2);margin-top:8px}
-footer{margin-top:26px;font-size:12px;color:var(--ink2);border-top:1px solid var(--line);padding-top:14px}
+footer{margin-top:24px;font-size:12px;color:#8aaacc;font-family:"JetBrains Mono",monospace;border-top:1px solid var(--border);padding:12px 0;text-align:center}
 footer p{margin:4px 0}
+
+/* 响应式 */
+@media (max-width:600px){
+  .wrap{padding:12px}
+  section h2{font-size:16px}
+  .tempbar .t{font-size:28px}
+  #mainChart{height:300px}
+  .cards{grid-template-columns:1fr}
+}
 </style>
 </head>
 <body>
@@ -75,7 +92,7 @@ footer p{margin:4px 0}
 <div class="notice" style="background:#e3f2fd;border-color:#90caf9;color:#0d47a1">中证A500 于 2024 年 10 月发布，其分位基于发布以来约 2 年数据，长周期参考性有限；黄金（Au99.99）没有 PE/PB 估值概念，仅展示价格历史分位，不代表估值高低。</div>
 
 <section id="secHoldings">
-  <h2>我的持仓</h2>
+  <h2>持仓</h2>
   <div class="tempbar" id="portfolioBar"></div>
   <div class="cards" id="holdingCards"></div>
 </section>
@@ -106,7 +123,7 @@ footer p{margin:4px 0}
 <footer>
   <p>免责声明：本看板数据来源于公开渠道，分位与信号均为历史统计口径，不构成任何投资建议。市场有风险，投资需谨慎。「无PB数据」表示该指数的数据源不提供 PB 指标，非系统缺数。</p>
   <p>数据源：乐咕乐股（A股 PE/PB）、中证指数官网（PE）、腾讯行情、东方财富（黄金/跨境）、multpl.com（标普500）、恒生指数公司（恒生科技）。</p>
-  <p>ValPulse 每周六自动生成 · 报告日期 2026-10-30</p>
+  <p>ValPulse 每周六自动生成 · 报告日期 2026-10-31</p>
 </footer>
 </div>
 
@@ -127,7 +144,7 @@ const SIGNAL = {
   fair:      {label:"正常定投",   detail:"历史中位，按计划定投",       tone:"#1565c0"},
   high:      {label:"减少定投",   detail:"历史偏高，可减半或暂停",     tone:"#ef6c00"},
   over:      {label:"分批止盈",   detail:"历史高位，可分批止盈",       tone:"#c62828"},
-  unknown:   {label:"数据不足",   detail:"暂无可执行信号",             tone:"#757575"},
+  unknown:   {label:"数据不足",   detail:"暂无可执行信号",             tone:"#8899aa"},
 };
 const TEMP_BANDS = [
   [15,"极度低估","积极定投区间"],[35,"相对低估","可加大定投"],
@@ -193,7 +210,7 @@ function renderCards(recs){
   for(const h of HOLDINGS){
     const r=recs[h.code]; if(!r) continue;
     const gold=isGold(h.code);
-    const sig=gold?{label:"仅价格参考",detail:"黄金无 PE/PB 估值，按价格分位自行判断",tone:"#757575"}
+    const sig=gold?{label:"仅价格参考",detail:"黄金无 PE/PB 估值，按价格分位自行判断",tone:"#8899aa"}
                   :(SIGNAL[r.pe_band]||SIGNAL.unknown);
     const div=document.createElement("div"); div.className="card";
     div.innerHTML=`
@@ -223,7 +240,7 @@ function renderCards(recs){
         axisPointer:{type:"cross",label:{show:false}},
         formatter:p=>`${p[0].axisValueLabel}<br>${fmt(p[0].data[1])}`},
         series:[{type:"line",data:pts,showSymbol:false,smooth:true,
-          lineStyle:{width:1.5,color:sig.tone},areaStyle:{color:sig.tone,opacity:0.12}}]});
+          lineStyle:{width:2.8,color:sig.tone},areaStyle:{color:sig.tone,opacity:0.35}}]});
     }
   }
 }

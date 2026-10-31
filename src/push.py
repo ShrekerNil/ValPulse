@@ -70,7 +70,7 @@ def build_summary(records: list, holdings: list, port_temp: dict,
             sig, color = SIGNAL_LABELS.get(r.get("pe_band"), SIGNAL_LABELS["unknown"])
         h_rows.append(
             "<tr>"
-            f"<td>{h['fund']}<br><span style='color:#999;font-size:12px'>"
+            f"<td>{h['fund']}<br><span style='color:#8899aa;font-size:12px;font-family:'JetBrains Mono',monospace;'>"
             f"跟踪：{r['name']}</span></td>"
             f"<td>{val}</td>"
             f"<td><b style='color:{color}'>{sig}</b></td>"
@@ -81,14 +81,14 @@ def build_summary(records: list, holdings: list, port_temp: dict,
         f'<p style="font-size:15px">组合估值温度 <b style="font-size:22px;color:#1565c0">'
         f'{port_temp["temperature"]:.0f}℃</b> · {port_temp["band"]} · '
         f'{port_temp["action"]}<br>'
-        f'<span style="color:#999;font-size:12px">{port_temp.get("note", "")}</span></p>'
+        f'<span style="color:#8899aa;font-size:12px;font-family:"JetBrains Mono",monospace;">{port_temp.get("note", "")}</span></p>'
         if port_temp.get("temperature") is not None else
         '<p style="color:#999">持仓数据不足</p>')
     mkt_html = (
         f'<p style="font-size:15px">大盘温度 <b style="font-size:22px;color:#1565c0">'
         f'{mkt_temp["temperature"]:.0f}℃</b> · {mkt_temp["band"]} · '
         f'{mkt_temp["action"]}<br>'
-        f'<span style="color:#999;font-size:12px">'
+        f'<span style="color:#8899aa;font-size:12px;font-family:"JetBrains Mono",monospace;">'
         f'基于 {"、".join(mkt_temp.get("based_on", []))} PE 分位等权合成</span></p>'
         if mkt_temp.get("temperature") is not None else
         '<p style="color:#999">宽基数据不足</p>')
@@ -115,7 +115,7 @@ def build_summary(records: list, holdings: list, port_temp: dict,
             f"<td>{r['name']}</td>"
             f"<td><span style='color:{pe_color};font-weight:600'>{_fmt(r.get('pe_value'))}</span></td>"
             f"<td><span style='color:{pe_color}'>{_pct(r.get('pe_percentile'))}</span></td>"
-            f"<td style='background:#f5f5f5;color:#999;font-size:11px'>│</td>"
+            f"<td style='background:#0d1115;color:#e8f8ff;font-weight:700;font-size:11px'>│</td>"
             f"<td><span style='color:{pb_color};font-weight:600'>{'-' if pb_none else _fmt(r.get('pb_value'))}</span></td>"
             f"<td><span style='color:{pb_color}'>{'-' if pb_none else _pct(r.get('pb_percentile'))}</span></td>"
             f"<td>{_cell_chg(r.get('change_pct'))}</td>"
@@ -133,32 +133,32 @@ def build_summary(records: list, holdings: list, port_temp: dict,
     link = (f'<p><a href="{report_url}">查看完整看板'
             f'（走势图 / 历史日期回看）</a></p>') if report_url else ""
     table_head = (
-        '<tr style="background:#f5f5f5">'
+        '<tr style="background:#0d1115;color:#e8f8ff;font-weight:700;">'
         '<th>指数</th><th>PE</th><th>PE分位</th>'
-        '<th style="background:#f5f5f5;color:#999;font-size:11px">│</th>'
+        '<th style="background:#0d1115;color:#e8f8ff;font-weight:700;font-size:11px">│</th>'
         '<th>PB</th><th>PB分位</th><th>日涨跌</th></tr>')
     return (
-        '<html><body style="font-family:sans-serif;font-size:14px;color:#333">'
-        "<h3>我的持仓</h3>"
+        '<html><body style="font-family:"JetBrains Mono","Noto Sans CJK SC",sans-serif;font-size:14px;color:#e6f0fa;background:#060b14;line-height:1.6;padding:24px;background-image:linear-gradient(rgba(255,255,255,.02) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.02) 1px,transparent 1px);background-size:40px 40px;">'
+        '<h3 style="font-size:20px;font-weight:700;color:#00d4aa;text-align:center;letter-spacing:4px;border-bottom:2px solid #1a2f3d;padding-bottom:8px;margin:20px 0 10px;">我的持仓</h3>'
         + port_html
         + '<table cellpadding="6" cellspacing="0" border="1" '
-          'style="border-collapse:collapse;border-color:#ddd;font-size:13px">'
-          '<tr style="background:#f5f5f5"><th>基金</th><th>估值状态</th>'
+          'style="border-collapse:collapse;border-color:#1a2a3a;font-size:12px;background:#0d1115;color:#d0e0f0;">'
+          '<tr style="background:#0d1115;color:#e8f8ff;font-weight:700;"><th>基金</th><th>估值状态</th>'
           "<th>定投信号</th><th>日涨跌</th></tr>"
         + "".join(h_rows)
         + "</table>"
-        "<h3>大盘</h3>"
+        '<h3 style="font-size:20px;font-weight:700;color:#00d4aa;text-align:center;letter-spacing:4px;border-bottom:2px solid #1a2f3d;padding-bottom:8px;margin:20px 0 10px;">大盘</h3>'
         + mkt_html
-        + "<h3>全部指数</h3>"
+        + '<h3 style="font-size:20px;font-weight:700;color:#00d4aa;text-align:center;letter-spacing:4px;border-bottom:2px solid #1a2f3d;padding-bottom:8px;margin:20px 0 10px;">全部指数</h3>'
           '<table cellpadding="6" cellspacing="0" border="1" '
-          'style="border-collapse:collapse;border-color:#ddd;font-size:13px">'
+          'style="border-collapse:collapse;border-color:#1a2a3a;font-size:12px;background:#0d1115;color:#d0e0f0;">'
         + table_head + "".join(rows) + "</table>"
         + f"<p>{'<br>'.join(notes)}</p>"
         + link
-        + '<p style="color:#999;font-size:12px">分位基于近10年历史；'
+        + '<p style="color:#7ab0cc;font-size:12px;font-family:"JetBrains Mono",monospace;">分位基于近10年历史；'
           "「无PB数据」为数据源不提供该指标，非系统缺数；"
           "定投信号为规则化提示，不构成投资建议</p>"
-        "</body></html>"
+        '</body></html>'
     )
 
 
