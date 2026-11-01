@@ -21,20 +21,20 @@ SMTP_PORT = 465  # SSL
 
 # 估值分位配色：低估绿 / 合理蓝 / 偏高橙 / 高估红（与看板一致）
 BAND_COLORS = {
-    "undervalued": "#2e7d32",
-    "fair": "#1565c0",
-    "high": "#ef6c00",
-    "over": "#c62828",
-    "unknown": "#757575",
+    "undervalued": "#00ffaa",
+    "fair": "#00d4ff",
+    "high": "#ffaa55",
+    "over": "#ff4d6d",
+    "unknown": "#8899aa",
 }
 
 # 定投信号（与 signal.py 口径一致）
 SIGNAL_LABELS = {
-    "undervalued": ("可加大定投", "#2e7d32"),
-    "fair": ("正常定投", "#1565c0"),
-    "high": ("减少定投", "#ef6c00"),
-    "over": ("分批止盈", "#c62828"),
-    "unknown": ("数据不足", "#757575"),
+    "undervalued": ("可加大定投", "#00ffaa"),
+    "fair": ("正常定投", "#00d4ff"),
+    "high": ("减少定投", "#ffaa55"),
+    "over": ("分批止盈", "#ff4d6d"),
+    "unknown": ("数据不足", "#8899aa"),
 }
 
 
@@ -42,7 +42,7 @@ def _cell_chg(chg) -> str:
     if not isinstance(chg, (int, float)):
         return "-"
     # A股惯例：涨红跌绿
-    color = "#c62828" if chg > 0 else "#2e7d32"
+    color = "#ff7859" if chg > 0 else "#28c940"
     sign = "+" if chg > 0 else ""
     return f'<span style="color:{color}">{sign}{chg:.2f}%</span>'
 

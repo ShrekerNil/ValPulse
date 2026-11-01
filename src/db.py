@@ -103,13 +103,28 @@ def save_snapshot(conn: sqlite3.Connection, report_date: str, records: list):
     conn.commit()
 
 
+def _normalize_date(s: str) -> str:
+    """统一日期为 YYYY-MM-DD（兼容存量 YYYYMMDD 数据；8 位数字日期 ECharts time 轴解析不了）"""
+    s = str(s).strip()
+    if s.isdigit() and len(s) == 8:
+        return f"{s[:4]}-{s[4:6]}-{s[6:]}"
+    return s
+
+
 def load_series_all(conn: sqlite3.Connection) -> dict:
-    """全历史序列：{code: {metric: [[date, value], ...]}}"""
-    out = {}
+    """全历史序列：{code: {metric: [[date, value], ...]}}，日期统一为 YYYY-MM-DD"""
+    rows = []
     for row in conn.execute(
             "SELECT code, metric, date, value FROM series ORDER BY code, metric, date"):
-        out.setdefault(row["code"], {}).setdefault(row["metric"], []).append(
-            [row["date"], row["value"]])
+        rows.append((row["code"], row["metric"], _normalize_date(row["date"]), row["value"]))
+    out = {}
+    for code, metric, d, v in rows:
+        out.setdefault(code, {}).setdefault(metric, []).append([d, v])
+    # 同一序列若历来混过两种格式，SQL 按字典序会排乱（'-' 的 ASCII 小于数字），
+    # 归一化后重新按字符串日期排序兜底
+    for metrics in out.values():
+        for pts in metrics.values():
+            pts.sort(key=lambda p: p[0])
     return out
 
 

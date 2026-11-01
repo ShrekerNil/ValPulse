@@ -15,28 +15,41 @@
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:"JetBrains Mono","Noto Sans CJK SC","Microsoft YaHei",sans-serif;
   background:var(--bg);color:var(--ink);line-height:1.4;background-image:linear-gradient(var(--line) 1px,transparent 1px),linear-gradient(90deg,var(--line) 1px,transparent 1px);background-size:40px 40px;background-position:center center}
-.wrap{max-width:1280px;margin:0 auto;padding:16px 20px 60px}
-header{display:flex;flex-wrap:wrap;align-items:baseline;gap:12px;padding:8px 0 4px}
-h1{font-size:28px;font-weight:900;letter-spacing:2px;color:var(--accent);text-shadow:0 0 15px rgba(0,212,170,.4)}
 
+/* 顶部标题区：全出血，不限宽 */
+.wrap{margin:0 auto;padding:12px 28px 60px}
+header{display:flex;flex-direction:column;align-items:center;gap:10px;padding:10px 0 8px}
+h1{text-align:center;width:100%;font-size:28px;font-weight:900;letter-spacing:4px;color:var(--accent);text-shadow:0 0 15px rgba(0,212,170,.4)}
+.dateRow{display:flex;align-items:center;justify-content:center;gap:10px}
 .sub{color:var(--ink2);font-size:13px}
 select{padding:4px 8px;border:1px solid var(--line);border-radius:6px;background:#fff;font-size:13px}
-.notice{background:var(--card-hover);border:1px solid var(--border);
-  border-radius:12px;padding:12px 16px;margin:12px 0;font-size:13px}
-.notice b{color:var(--accent)}
+
+/* 中部：两个真正的数据模块左右布局 */
+.modules{display:flex;align-items:flex-start;gap:24px;margin-top:10px;width:100%}
 section{background:var(--card);border:1px solid var(--border);border-radius:16px;
-  padding:20px;margin-top:16px}
+  padding:18px;flex:1 1 auto;min-width:300px;box-sizing:border-box}
+section#secHoldings{flex:0 0 30%;min-width:300px;box-sizing:border-box;padding:14px;box-shadow:0 0 20px rgba(0,212,170,.1)}
+section#secMarket{flex:1 1 auto;min-width:500px;box-sizing:border-box;padding:14px;box-shadow:0 0 20px rgba(0,212,170,.1)}
 section h2{font-size:20px;font-weight:700;margin:0 0 16px;padding-bottom:10px;border-bottom:3px solid var(--accent);text-align:center;letter-spacing:4px}
-section:first-child{margin-top:0}
+
+/* 底部：提示性信息区 + 免责声明，归位页脚 */
+.bottom{margin-top:24px;display:flex;flex-direction:column;gap:14px}
+.notices{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(320px,100%),1fr));gap:16px}
+.notice{background:var(--card-hover);border:1px solid var(--border);
+  border-radius:12px;padding:12px 16px;margin:0;font-size:13px}
+.notice b{color:var(--accent)}
+.notice.warn{border-left:3px solid var(--band-high)}
+
 /* 组合 / 大盘温度条 */
 .tempbar{display:flex;flex-wrap:wrap;align-items:center;gap:12px;
   background:var(--card);border-radius:10px;padding:14px 16px;margin-bottom:14px}
 .tempbar .t{font-size:42px;font-weight:900;color:#00ffcc;text-shadow:0 0 20px rgba(0,255,204,.5)}
 .tempbar .meta{font-size:12px;color:var(--ink2)}
 .tempbar .meta b{color:var(--ink)}
+
 /* 持仓卡片 */
-.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:10px}
-.card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px;transition:box-shadow .2s}
+.cards{display:grid;grid-template-columns:repeat(auto-fit, minmax(260px, 1fr));gap:6px;margin-top:6px;width:100%}
+.card{background:var(--card);border:1px solid var(--border);border-top:3px solid var(--accent);border-radius:10px;padding:8px 10px;transition:box-shadow .2s;box-shadow:0 2px 8px rgba(0,212,170,.15)}
 .card:hover{box-shadow:0 2px 8px rgba(0,0,0,.2)}
 .card .fund{font-size:15px;font-weight:800;margin-bottom:8px}
 .card .idx{font-size:11px;color:var(--ink2);margin-bottom:6px}
@@ -47,36 +60,46 @@ section:first-child{margin-top:0}
 .pill.fair{color:var(--band-fair);background:rgba(99,179,237,.15)}
 .pill.high{color:var(--band-high);background:rgba(246,173,85,.15)}
 .pill.over{color:var(--band-over);background:rgba(229,62,62,.15)}
-.spark{height:48px;margin:6px -4px 4px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:6px;box-shadow:inset 0 0 10px rgba(0,212,170,.05)}
-.sig{margin-top:8px;font-size:13px;padding:8px 10px;border-radius:8px;background:#f5f5f5}
+.spark{height:52px;margin:4px 0 4px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);border-radius:6px;box-shadow:inset 0 0 12px rgba(0,212,170,.08),0 0 6px rgba(0,212,170,.05)}
+.sig{margin-top:4px;font-size:10px;padding:4px 6px;border-radius:4px;background:rgba(255,255,255,.02);border-left:3px solid var(--accent);line-height:1.2}
+
 /* 估值表 */
 table{width:100%;border-collapse:collapse;font-size:12px;margin-top:8px;color:#d0e0f0}
 th,td{padding:6px 8px;text-align:right;border-bottom:1px solid var(--border);
   font-variant-numeric:tabular-nums;white-space:nowrap}
 th:first-child,td:first-child{text-align:left}
 th{background:rgba(0,212,170,.1);color:#e8f8ff;font-weight:700;text-shadow:0 0 6px rgba(0,212,170,.3)}
-tr.cat td{background:var(--card-hover);font-weight:700;text-align:left;color:var(--muted)}
+tr.cat td{background:var(--card-hover);font-weight:700;text-align:left;color:var(--ink2)}
 tbody tr.data:hover{background:var(--card-hover);cursor:pointer}
 tbody tr.data.sel{background:rgba(6,182,212,.15)}
 td.up{color:var(--up)} td.down{color:var(--down)}
 td.null{color:var(--muted)}
+
 /* 主图 */
-.toolbar{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0 6px}
+.toolbar{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0 6px;align-items:center}
 .toolbar .grp{display:flex;border:1px solid var(--border);border-radius:6px;overflow:hidden}
 .toolbar .grp button{border:0;background:var(--card);padding:6px 14px;font-size:12px;cursor:pointer}
 .toolbar .grp button.on{background:var(--accent);color:#fff}
-#mainChart{height:460px;margin:18px 0 12px;padding:12px;border-radius:12px;border:1px solid var(--border)}
-.legend{display:flex;flex-wrap:wrap;gap:12px;font-size:12px;color:var(--ink2);margin-top:8px}
-footer{margin-top:24px;font-size:12px;color:#8aaacc;font-family:"JetBrains Mono",monospace;border-top:1px solid var(--border);padding:12px 0;text-align:center}
+#mainChart{height:460px;margin:10px 0 8px;padding:14px;border-radius:14px;border:2px solid rgba(0,212,170,.3);box-shadow:0 0 30px rgba(0,212,170,.1),inset 0 0 20px rgba(0,212,170,.05);background:rgba(255,255,255,.02)}
+.legend{display:flex;flex-wrap:wrap;gap:6px;font-size:10px;color:#8899aa;margin-top:4px;letter-spacing:0.5px;opacity:0.9}
+
+footer{font-size:12px;color:#8aaacc;font-family:"JetBrains Mono",monospace;border-top:1px solid var(--border);padding:12px 0;text-align:center}
 footer p{margin:4px 0}
 
 /* 响应式 */
+@media (max-width:1000px){
+  .wrap{padding:12px 16px 40px}
+  .modules{flex-direction:column;align-items:stretch;gap:16px}
+  section#secHoldings,section#secMarket{flex:1 1 100%;min-width:auto}
+  .bottom{margin-top:16px}
+}
 @media (max-width:600px){
-  .wrap{padding:12px}
+  .wrap{padding:12px 12px 40px}
   section h2{font-size:16px}
   .tempbar .t{font-size:28px}
-  #mainChart{height:300px}
-  .cards{grid-template-columns:1fr}
+  #mainChart{height:280px}
+  table{display:block;overflow-x:auto;-webkit-overflow-scrolling:touch}
+  th,td{white-space:normal;padding:5px 6px;font-size:11px}
 }
 </style>
 </head>
@@ -84,13 +107,14 @@ footer p{margin:4px 0}
 <div class="wrap">
 <header>
   <h1>ValPulse 估值看板</h1>
-  <span class="sub">数据日期</span>
-  <select id="dateSel"></select>
-  <span class="sub" id="dateMeta"></span>
+  <div class="dateRow">
+    <span class="sub">数据日期</span>
+    <select id="dateSel"></select>
+    <span class="sub" id="dateMeta"></span>
+  </div>
 </header>
-<div class="notice">估值分位为历史统计参考，不构成投资建议；定投信号为规则化提示，请结合自身风险承受能力决策。</div>
-<div class="notice" style="background:#e3f2fd;border-color:#90caf9;color:#0d47a1">中证A500 于 2024 年 10 月发布，其分位基于发布以来约 2 年数据，长周期参考性有限；黄金（Au99.99）没有 PE/PB 估值概念，仅展示价格历史分位，不代表估值高低。</div>
 
+<div class="modules">
 <section id="secHoldings">
   <h2>持仓</h2>
   <div class="tempbar" id="portfolioBar"></div>
@@ -119,12 +143,19 @@ footer p{margin:4px 0}
   <div id="mainChart"></div>
   <div class="legend" id="chartHint"></div>
 </section>
+</div>
 
-<footer>
-  <p>免责声明：本看板数据来源于公开渠道，分位与信号均为历史统计口径，不构成任何投资建议。市场有风险，投资需谨慎。「无PB数据」表示该指数的数据源不提供 PB 指标，非系统缺数。</p>
-  <p>数据源：乐咕乐股（A股 PE/PB）、中证指数官网（PE）、腾讯行情、东方财富（黄金/跨境）、multpl.com（标普500）、恒生指数公司（恒生科技）。</p>
-  <p>ValPulse 每周六自动生成 · 报告日期 2026-10-31</p>
-</footer>
+<div class="bottom">
+  <div class="notices">
+    <div class="notice">估值分位为历史统计参考，不构成投资建议；定投信号为规则化提示，请结合自身风险承受能力决策。</div>
+    <div class="notice warn">中证A500 于 2024 年 10 月发布，其分位基于发布以来约 2 年数据，长周期参考性有限；黄金（Au99.99）没有 PE/PB 估值概念，仅展示价格历史分位，不代表估值高低。</div>
+  </div>
+  <footer>
+    <p>免责声明：本看板数据来源于公开渠道，分位与信号均为历史统计口径，不构成任何投资建议。市场有风险，投资需谨慎。</p>
+    <p>数据源：乐咕乐股（A股 PE/PB）、中证指数官网（PE）、腾讯行情、东方财富（黄金/跨境）、multpl.com（标普500）、恒生指数公司（恒生科技）。</p>
+    <p>ValPulse 每周六自动生成 · 报告日期 2026-10-31</p>
+  </footer>
+</div>
 </div>
 
 <script>
@@ -140,10 +171,10 @@ const BAND = {
   unknown:   {cn:"数据不足", color:"#757575", bg:"#f5f5f5"},
 };
 const SIGNAL = {
-  undervalued:{label:"可加大定投", detail:"历史低位，参考加大至 1.5-2 倍", tone:"#2e7d32"},
-  fair:      {label:"正常定投",   detail:"历史中位，按计划定投",       tone:"#1565c0"},
-  high:      {label:"减少定投",   detail:"历史偏高，可减半或暂停",     tone:"#ef6c00"},
-  over:      {label:"分批止盈",   detail:"历史高位，可分批止盈",       tone:"#c62828"},
+  undervalued:{label:"可加大定投", detail:"历史低位，参考加大至 1.5-2 倍", tone:"#00ffaa"},
+  fair:      {label:"正常定投",   detail:"历史中位，按计划定投",       tone:"#00d4ff"},
+  high:      {label:"减少定投",   detail:"历史偏高，可减半或暂停",     tone:"#ffaa55"},
+  over:      {label:"分批止盈",   detail:"历史高位，可分批止盈",       tone:"#ff4d6d"},
   unknown:   {label:"数据不足",   detail:"暂无可执行信号",             tone:"#8899aa"},
 };
 const TEMP_BANDS = [
@@ -153,7 +184,15 @@ const TEMP_BANDS = [
 const UP="#c62828", DOWN="#2e7d32";
 
 let SERIES={}, SNAPS={}, DATES=[], curDate="", curCode="", curMetric="pe";
-const sparks={}, mainChart=echarts.init(document.getElementById("mainChart"));
+const sparks={};
+const sparkRO=("ResizeObserver" in window)?new ResizeObserver(es=>{
+  for(const e of es){const el=e.target,ch=el.__ech;
+    if(ch&&el.clientWidth>0&&el.clientHeight>0)ch.resize();}
+}):null;
+const mainEl=document.getElementById("mainChart");
+const mainChart=echarts.init(mainEl);
+mainEl.__ech=mainChart;
+if(sparkRO) sparkRO.observe(mainEl);
 
 /* ===== 工具 ===== */
 const $=s=>document.querySelector(s);
@@ -172,6 +211,14 @@ function isGold(code){return code.indexOf("GOLD.")===0;}
 function windowStart(){
   const d=new Date(curDate); d.setFullYear(d.getFullYear()-WINDOW_YEARS);
   return d.toISOString().slice(0,10);
+}
+function normDate(s){
+  s=String(s);
+  if(/^[0-9]{8}$/.test(s)) return s.slice(0,4)+"-"+s.slice(4,6)+"-"+s.slice(6);
+  return s;
+}
+function normPts(arr){
+  return (arr||[]).map(p=>[normDate(p[0]),p[1]]).filter(p=>p[0]>=windowStart());
 }
 
 /* ===== 渲染：温度条 ===== */
@@ -206,7 +253,9 @@ function renderMarketBar(recs){
 /* ===== 渲染：持仓卡片 ===== */
 function renderCards(recs){
   const box=$("#holdingCards"); box.innerHTML="";
+  if (typeof sparkRO !== "undefined" && sparkRO) sparkRO.disconnect();
   for(const k in sparks){ sparks[k].dispose&&sparks[k].dispose(); delete sparks[k]; }
+  const pending=[];
   for(const h of HOLDINGS){
     const r=recs[h.code]; if(!r) continue;
     const gold=isGold(h.code);
@@ -230,18 +279,24 @@ function renderCards(recs){
         <b style="color:${sig.tone}">${sig.label}</b><span class="d">${sig.detail}</span>
       </div>`;
     box.appendChild(div);
-    const metric=gold?"price":"pe";
-    const pts=((SERIES[h.code]||{})[metric]||[]).filter(p=>p[0]>=windowStart());
-    if(pts.length>1){
-      const c=echarts.init(div.querySelector(".spark"));
-      sparks[r.code]=c;
-      c.setOption({grid:{left:0,right:0,top:2,bottom:2},xAxis:{type:"time",show:false},
-        yAxis:{type:"value",show:false,scale:true},tooltip:{trigger:"axis",
-        axisPointer:{type:"cross",label:{show:false}},
-        formatter:p=>`${p[0].axisValueLabel}<br>${fmt(p[0].data[1])}`},
-        series:[{type:"line",data:pts,showSymbol:false,smooth:true,
-          lineStyle:{width:2.8,color:sig.tone},areaStyle:{color:sig.tone,opacity:0.35}}]});
-    }
+    pending.push({div, code:r.code, tone:sig.tone});
+  }
+  /* 阶段2：所有卡片已就位，网格列数已定，再统一初始化 sparkline */
+  for(const p of pending){
+    const metric=isGold(p.code)?"price":"pe";
+    const pts=normPts((SERIES[p.code]||{})[metric]);
+    if(pts.length<2) continue;
+    const sp=p.div.querySelector(".spark"); if(!sp) continue;
+    const c=echarts.init(sp);
+    sparks[p.code]=c;
+    sp.__ech=c;
+    if(sparkRO) sparkRO.observe(sp);
+    c.setOption({grid:{left:0,right:0,top:2,bottom:2},xAxis:{type:"time",show:false},
+      yAxis:{type:"value",show:false,scale:true},tooltip:{trigger:"axis",
+      axisPointer:{type:"cross",label:{show:false}},
+      formatter:q=>`${q[0].axisValueLabel}<br>${fmt(q[0].data[1])}`},
+      series:[{type:"line",data:pts,showSymbol:false,smooth:true,
+        lineStyle:{width:2.8,color:p.tone},areaStyle:{color:p.tone,opacity:0.35}}]});
   }
 }
 
@@ -298,7 +353,7 @@ function selectIndex(code){
 }
 function renderMain(){
   const metric=curMetric;
-  const pts=((SERIES[curCode]||{})[metric]||[]).filter(p=>p[0]>=windowStart());
+  const pts=normPts((SERIES[curCode]||{})[metric]);
   const rec=snapsOf(curDate)[curCode]||{};
   const name=rec.name||curCode;
   const color=metric==="price"?"#f9a825":"#1565c0";
