@@ -111,7 +111,6 @@ footer p{margin:4px 0}
   section h2{font-size:16px}
   .tempbar .t{font-size:28px}
   #mainChart{height:280px}
-  table{display:block;overflow-x:auto;-webkit-overflow-scrolling:touch}
   th,td{white-space:normal;padding:5px 6px;font-size:11px}
 }
 </style>
