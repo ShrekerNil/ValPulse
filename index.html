@@ -53,8 +53,9 @@ section h2{font-size:20px;font-weight:700;margin:0 0 16px;padding-bottom:10px;bo
 .card:hover{box-shadow:0 2px 8px rgba(0,0,0,.2)}
 .card .fund{font-size:15px;font-weight:800;margin-bottom:8px}
 .card .idx{font-size:11px;color:var(--ink2);margin-bottom:6px}
-.card .kv{display:flex;justify-content:space-between;font-size:12px;padding:4px 0}
+.card .kv{display:flex;justify-content:space-between;align-items:baseline;font-size:12px;padding:4px 0}
 .card .kv span{color:var(--ink2)}
+.card .kv em{font-style:normal;color:#8fa3b8;font-size:10.5px;margin-left:4px}
 .pill{display:inline-block;padding:2px 8px;border-radius:14px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px}
 .pill.low{color:var(--band-low);background:rgba(56,161,105,.15)}
 .pill.fair{color:var(--band-fair);background:rgba(99,179,237,.15)}
@@ -64,16 +65,27 @@ section h2{font-size:20px;font-weight:700;margin:0 0 16px;padding-bottom:10px;bo
 .sig{margin-top:4px;font-size:10px;padding:4px 6px;border-radius:4px;background:rgba(255,255,255,.02);border-left:3px solid var(--accent);line-height:1.2}
 
 /* 估值表 */
-table{width:100%;border-collapse:collapse;font-size:12px;margin-top:8px;color:#d0e0f0}
-th,td{padding:6px 8px;text-align:right;border-bottom:1px solid var(--border);
-  font-variant-numeric:tabular-nums;white-space:nowrap}
+.tableWrap{margin-top:10px;border:1px solid var(--border);border-radius:12px;
+  overflow:auto;background:rgba(255,255,255,.02);box-shadow:0 2px 12px rgba(0,0,0,.18)}
+table{width:100%;border-collapse:separate;border-spacing:0;font-size:12.5px;margin:0;color:#d0e0f0}
+th,td{padding:9px 10px;text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
 th:first-child,td:first-child{text-align:left}
-th{background:rgba(0,212,170,.1);color:#e8f8ff;font-weight:700;text-shadow:0 0 6px rgba(0,212,170,.3)}
-tr.cat td{background:var(--card-hover);font-weight:700;text-align:left;color:var(--ink2)}
-tbody tr.data:hover{background:var(--card-hover);cursor:pointer}
-tbody tr.data.sel{background:rgba(6,182,212,.15)}
-td.up{color:var(--up)} td.down{color:var(--down)}
+thead th{position:sticky;top:0;z-index:1;background:#0a1622;color:#e8f8ff;font-weight:700;
+  font-size:12px;letter-spacing:.5px;border-bottom:1px solid rgba(0,212,170,.4)}
+tbody td{border-bottom:1px solid rgba(255,255,255,.055)}
+tbody tr.data:nth-child(even){background:rgba(255,255,255,.022)}
+tbody tr.data:hover{background:rgba(6,182,212,.12);cursor:pointer}
+tbody tr.data.sel{background:rgba(6,182,212,.18);box-shadow:inset 3px 0 0 var(--accent)}
+tr.cat td{background:rgba(0,212,170,.09);color:#9fe8d8;font-size:11px;font-weight:700;
+  letter-spacing:1.5px;text-transform:uppercase;padding:6px 10px;border-bottom:1px solid rgba(0,212,170,.18)}
 td.null{color:var(--muted)}
+.idxName{font-weight:700;color:#eef7ff}
+.subval{display:block;font-size:10px;font-weight:400;color:#8fa3b8;margin-top:2px;letter-spacing:0}
+.pctBig{font-weight:700;font-size:13px}
+.compCell{min-width:74px}
+/* 本周关注 */
+.focus{display:flex;flex-wrap:wrap;gap:8px;margin:2px 0 10px;font-size:12px}
+.focus .tag{border:1px solid;border-radius:999px;padding:3px 10px;background:rgba(255,255,255,.03);line-height:1.4}
 
 /* 主图 */
 .toolbar{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0 6px;align-items:center}
@@ -124,6 +136,7 @@ footer p{margin:4px 0}
   <h2>大盘</h2>
   <div class="tempbar" id="marketBar"></div>
   <div class="legend" id="bandLegend"></div>
+  <div class="focus" id="focusList"></div>
   <div class="toolbar">
     <span class="sub">指数</span>
     <select id="idxSel"></select>
@@ -133,12 +146,15 @@ footer p{margin:4px 0}
       <button data-m="price">价格</button>
     </div>
   </div>
+  <div class="tableWrap">
   <table id="valTable">
     <thead><tr>
-      <th>指数</th><th>PE</th><th>PE分位</th><th>PB</th><th>PB分位</th><th>日涨跌</th>
+      <th>指数</th><th>收盘</th><th>PE</th><th>PE分位</th><th>PB</th><th>PB分位</th>
+      <th>股息率</th><th>综合</th><th>日涨跌</th>
     </tr></thead>
     <tbody></tbody>
   </table>
+  </div>
   <div id="mainChart"></div>
   <div class="legend" id="chartHint"></div>
 </section>
@@ -151,8 +167,8 @@ footer p{margin:4px 0}
   </div>
   <footer>
     <p>免责声明：本看板数据来源于公开渠道，分位与信号均为历史统计口径，不构成任何投资建议。市场有风险，投资需谨慎。</p>
-    <p>数据源：乐咕乐股（A股 PE/PB）、中证指数官网（PE）、腾讯行情、东方财富（黄金/跨境）、multpl.com（标普500）、恒生指数公司（恒生科技）。</p>
-    <p>ValPulse 每周六自动生成 · 报告日期 2026-11-02</p>
+    <p>数据源：乐咕乐股（A股 PE/PB）、中证指数官网（PE/factsheet 最新 PB·股息率）、蛋卷基金（PB/股息率）、腾讯行情、东方财富（黄金/跨境）、multpl.com（标普500 PE/PB/股息率）。</p>
+    <p>ValPulse 每周六自动生成 · 报告日期 2026-11-04</p>
   </footer>
 </div>
 </div>
@@ -217,7 +233,42 @@ function normDate(s){
   return s;
 }
 function normPts(arr){
-  return (arr||[]).map(p=>[normDate(p[0]),p[1]]).filter(p=>p[0]>=windowStart());
+  const lo=windowStart(), hi=curDate;
+  return (arr||[]).map(p=>[normDate(p[0]),p[1]])
+    .filter(p=>p[0]>=lo && p[0]<=hi);
+}
+/* 综合分位：PE/PB 分位等权（仅纳入分级有效者，避免单点快照拉偏） */
+function bandOfPct(p){
+  if(p==null) return "unknown";
+  if(p<20) return "undervalued";
+  if(p<70) return "fair";
+  if(p<90) return "high";
+  return "over";
+}
+function compOf(r){
+  const vals=[];
+  if(r.pe_pct!=null && r.pe_band!=="unknown") vals.push(Number(r.pe_pct));
+  if(r.pb_pct!=null && r.pb_band!=="unknown") vals.push(Number(r.pb_pct));
+  if(!vals.length) return [null,"unknown"];
+  const p=vals.reduce((s,x)=>s+x,0)/vals.length;
+  return [p,bandOfPct(p)];
+}
+/* 分位连续热力色：低分位绿 → 中位黄 → 高分位红 */
+function heat(p){
+  if(p==null) return "#8fa3b8";
+  const t=Math.max(0,Math.min(100,Number(p)))/100;
+  return `hsl(${120-120*t},65%,58%)`;
+}
+/* 区间均值：与当前图表的展示区间一致（数据有几年就算几年，不固定 1 年） */
+function seriesMean(pts){
+  const vals=(pts||[]).map(p=>p[1]).filter(v=>v!=null);
+  return vals.length?vals.reduce((s,v)=>s+v,0)/vals.length:null;
+}
+/* 数据实际跨度（年），用于均线标注 */
+function spanYears(pts){
+  if(!pts||pts.length<2) return 0;
+  const a=new Date(pts[0][0]), b=new Date(pts[pts.length-1][0]);
+  return Math.max(0,(b-a)/31557600000);
 }
 
 /* ===== 渲染：温度条 ===== */
@@ -227,23 +278,26 @@ function renderPortfolioBar(recs){
     const r=recs[h.code]; if(!r) continue;
     if(isGold(h.code)){
       if(r.price_pct!=null) notes.push(`${r.name}价格分位 ${pctTxt(r.price_pct)}（仅价格参考）`);
-    }else if(r.pe_pct!=null) pcts.push(r.pe_pct);
+    }else{
+      const [cp]=compOf(r);
+      if(cp!=null) pcts.push(cp);
+    }
   }
   const t=mean(pcts),[band,act]=tempBand(t);
   $("#portfolioBar").innerHTML= t==null
     ? `<span class="t">—</span><span class="meta">持仓数据不足</span>`
     : `<span class="t">${t.toFixed(0)}℃</span>
        <span class="meta"><b>${band}</b> · ${act}<br>
-       ${notes.length?"估值温度基于 "+pcts.length+" 只有估值分位持仓合成；"+notes.join("；")
-                     :"基于 "+pcts.length+" 只持仓等权合成"}</span>`;
+       ${notes.length?"综合分位基于 "+pcts.length+" 只有估值分位持仓合成；"+notes.join("；")
+                     :"基于 "+pcts.length+" 只持仓综合分位（PE/PB 等权）合成"}</span>`;
 }
 function renderMarketBar(recs){
-  const pcts=BROAD.map(c=>recs[c]&&recs[c].pe_pct).filter(v=>v!=null);
+  const pcts=BROAD.map(c=>recs[c]?compOf(recs[c])[0]:null).filter(v=>v!=null);
   const t=mean(pcts),[band,act]=tempBand(t);
   $("#marketBar").innerHTML= t==null
     ? `<span class="t">—</span><span class="meta">宽基数据不足</span>`
     : `<span class="t">${t.toFixed(0)}℃</span>
-       <span class="meta"><b>${band}</b> · ${act}<br>基于 ${pcts.length} 只宽基 PE 分位等权合成</span>`;
+       <span class="meta"><b>${band}</b> · ${act}<br>基于 ${pcts.length} 只宽基综合分位（PE/PB 等权）合成</span>`;
   $("#bandLegend").innerHTML=Object.values(BAND).map(b=>
     `<span><span class="pill" style="color:${b.color};background:${b.bg}">${b.cn}</span></span>`
   ).join("");
@@ -258,8 +312,9 @@ function renderCards(recs){
   for(const h of HOLDINGS){
     const r=recs[h.code]; if(!r) continue;
     const gold=isGold(h.code);
+    const [compPct,compBand]=compOf(r);
     const sig=gold?{label:"仅价格参考",detail:"黄金无 PE/PB 估值，按价格分位自行判断",tone:"#8899aa"}
-                  :(SIGNAL[r.pe_band]||SIGNAL.unknown);
+                  :(SIGNAL[compBand]||SIGNAL.unknown);
     const div=document.createElement("div"); div.className="card";
     div.innerHTML=`
       <div class="fund">${h.fund}</div>
@@ -268,10 +323,10 @@ function renderCards(recs){
         <div class="kv"><span>金价（元/克）</span><span class="v">${fmt(r.price)}</span></div>
         <div class="kv"><span>价格历史分位</span><span class="v">${pctTxt(r.price_pct)}</span></div>`
       :`
-        <div class="kv"><span>PE(TTM)</span><span class="v">${fmt(r.pe)}</span></div>
-        <div class="kv"><span>PE 历史分位</span><span class="v">${pctTxt(r.pe_pct)}</span></div>
-        <div class="kv"><span>PB</span><span class="v">${fmt(r.pb)}</span></div>
-        <div class="kv"><span>PB 历史分位</span><span class="v">${pctTxt(r.pb_pct)}</span></div>`}
+        <div class="kv"><span>PE(TTM)</span><span class="v">${fmt(r.pe)}<em>分位 ${pctTxt(r.pe_pct)}</em></span></div>
+        <div class="kv"><span>PB</span><span class="v">${fmt(r.pb)}<em>分位 ${pctTxt(r.pb_pct)}</em></span></div>
+        <div class="kv"><span>股息率</span><span class="v">${r.dy==null?"—":fmt(r.dy)+"%"}<em>${r.dy_band==="unknown"?"样本不足":"分位 "+pctTxt(r.dy_pct)}</em></span></div>
+        <div class="kv"><span>综合分位</span><span class="v"><b style="color:${BAND[compBand].color}">${pctTxt(compPct)}</b><em>${BAND[compBand].cn}</em></span></div>`}
       <div class="kv"><span>日涨跌</span><span class="v" style="color:${r.change_pct==null?"inherit":(r.change_pct>=0?UP:DOWN)}">${r.change_pct==null?"—":(r.change_pct>=0?"+":"")+r.change_pct.toFixed(2)+"%"}</span></div>
       <div class="spark" id="sp_${r.code.replace(/[^a-zA-Z0-9]/g,"_")}"></div>
       <div class="sig" style="border-left:4px solid ${sig.tone}">
@@ -290,12 +345,18 @@ function renderCards(recs){
     sparks[p.code]=c;
     sp.__ech=c;
     if(sparkRO) sparkRO.observe(sp);
+    const cur=pts[pts.length-1][1], ma=seriesMean(pts);
     c.setOption({grid:{left:0,right:0,top:2,bottom:2},xAxis:{type:"time",show:false},
       yAxis:{type:"value",show:false,scale:true},tooltip:{trigger:"axis",
       axisPointer:{type:"cross",label:{show:false}},
       formatter:q=>`${q[0].axisValueLabel}<br>${fmt(q[0].data[1])}`},
       series:[{type:"line",data:pts,showSymbol:false,smooth:true,
-        lineStyle:{width:2.8,color:p.tone},areaStyle:{color:p.tone,opacity:0.35}}]});
+        lineStyle:{width:2.8,color:p.tone},areaStyle:{color:p.tone,opacity:0.35},
+        markLine:{silent:true,symbol:"none",animation:false,label:{show:false},
+          data:[
+            {yAxis:cur,lineStyle:{color:p.tone,width:1.4,type:"dashed"}},
+            {yAxis:ma,lineStyle:{color:"#90a4ae",width:1,type:"dashed"}}
+          ].filter(d=>d.yAxis!=null)}}]});
   }
 }
 
@@ -303,16 +364,24 @@ function renderCards(recs){
 function rowHtml(r){
   const gold=isGold(r.code);
   const sel=r.code===curCode?' class="data sel"':' class="data"';
-  // PE/PB 数值本身按分级着色，不再单列分级列
-  const peColor=gold?'#757575':BAND[r.pe_band].color;
-  const pbColor=(gold||r.pb==null)?'#757575':BAND[r.pb_band].color;
+  const [compPct,compBand]=compOf(r);
+  const peColor=gold?'#8fa3b8':(r.pe_band==="unknown"?"#8fa3b8":heat(r.pe_pct));
+  const pbColor=(gold||r.pb==null||r.pb_band==="unknown")?'#8fa3b8':heat(r.pb_pct);
+  const dyColor=(r.dy_pct==null||r.dy_band==="unknown")?'#8fa3b8':heat(100-r.dy_pct);
+  const compColor=BAND[compBand].color;
   return `<tr${sel} data-code="${r.code}">
-    <td><span style="border-right:1px solid #eceff1">${r.name}</span></td>
-    ${gold?`<td colspan="2" style="text-align:left;color:#757575">金价 ${fmt(r.price)} 元/克 · 价格分位 ${pctTxt(r.price_pct)}</td>`
-          :`<td style="color:${peColor};font-weight:600;border-left:1px solid #e0e0e0;border-right:1px solid #e0e0e0">${fmt(r.pe)}</td>
-             <td style="color:${peColor};border-left:1px solid #e0e0e0;border-right:1px solid #e0e0e0">${pctTxt(r.pe_pct)}</td>`}
-    <td style="color:${pbColor};font-weight:600;border-left:1px solid #e0e0e0;border-right:1px solid #e0e0e0">${fmt(r.pb)}</td>
-    <td style="color:${pbColor};border-left:1px solid #e0e0e0;border-right:1px solid #e0e0e0">${pctTxt(r.pb_pct)}</td>
+    <td><span class="idxName">${r.name}</span></td>
+    <td>${fmt(r.price)}</td>
+    ${gold
+      ? `<td colspan="6" style="text-align:left;color:#8fa3b8">黄金无 PE/PB/股息率 · 价格分位 ${pctTxt(r.price_pct)}</td>`
+      : `<td style="color:${peColor};font-weight:600">${fmt(r.pe)}</td>
+         <td style="color:${peColor};font-weight:600">${pctTxt(r.pe_pct)}</td>
+         <td style="color:${pbColor};font-weight:600">${fmt(r.pb)}</td>
+         <td style="color:${pbColor};font-weight:600">${pctTxt(r.pb_pct)}</td>
+         <td style="color:${dyColor};font-weight:600">${r.dy==null?"—":fmt(r.dy)+"%"}
+           <span class="subval">${r.dy_band==="unknown"?"样本不足":"分位 "+pctTxt(r.dy_pct)}</span></td>
+         <td class="compCell"><span class="pctBig" style="color:${compColor}">${pctTxt(compPct)}</span>
+           <span class="subval">${BAND[compBand].cn}</span></td>`}
     ${chgCell(r.change_pct)}</tr>`;
 }
 function renderTable(recs){
@@ -322,24 +391,41 @@ function renderTable(recs){
     const r=recs[code];
     (groups[r.category]=groups[r.category]||[]).push(r);
   }
-  // 排序：按估值分级 低估→合理→偏高→高估，无值（缺指标）沉底；同分级内无PB的置于其后
-  const bandRank=b=>({"低估":0,"合理":1,"偏高":2,"高估":3}[b] ?? 4);
+  // 排序：综合分级 低估→合理→偏高→高估，同级内按综合分位升序；黄金沉底
+  const bandRank=b=>({undervalued:0,fair:1,high:2,over:3,unknown:4}[b] ?? 4);
   const sortKey=r=>{
-    const pr=bandRank(r.pe_band);
-    const nb=(!isGold(r.code) && r.pb==null)?1:0;
-    return pr*2 + nb;
+    if(isGold(r.code)) return 99999;
+    const [cp,cb]=compOf(r);
+    return bandRank(cb)*1000 + (cp==null?999:cp);
   };
   let html="";
   const keys=order.concat(Object.keys(groups).filter(k=>order.indexOf(k)<0));
   for(const g of keys){
     if(!groups[g]) continue;
     const rows=groups[g].sort((a,b)=>sortKey(a)-sortKey(b));
-    html+=`<tr class="cat"><td colspan="6">${g}</td></tr>`;
+    html+=`<tr class="cat"><td colspan="9">${g}</td></tr>`;
     for(const r of rows) html+=rowHtml(r);
   }
   $("#valTable tbody").innerHTML=html;
   document.querySelectorAll("#valTable tbody tr.data").forEach(tr=>
     tr.addEventListener("click",()=>selectIndex(tr.dataset.code)));
+}
+/* 本周关注：综合低估 / PE+PB 双低 / 综合偏高，替代手工扫表 */
+function renderFocus(recs){
+  const low=[],dual=[],high=[];
+  for(const code in recs){
+    const r=recs[code]; if(isGold(code)) continue;
+    const [cp]=compOf(r);
+    if(cp!=null && cp<20) low.push(r.name);
+    if(cp!=null && cp>70) high.push(r.name);
+    if(r.pe_pct!=null && r.pb_pct!=null && r.pe_pct<20 && r.pb_pct<20) dual.push(r.name);
+  }
+  const tag=(label,arr,color)=>!arr.length?"":
+    `<span class="tag" style="border-color:${color};color:${color}">${label} · ${arr.join("、")}</span>`;
+  const html=tag("综合低估",low,"#2e7d32")+tag("PE/PB 双低",dual,"#00796b")
+            +tag("综合偏高",high,"#c62828");
+  $("#focusList").innerHTML=html
+    || `<span class="tag" style="border-color:#5b7083;color:#9fb3c8">本周无极端估值标的</span>`;
 }
 
 /* ===== 渲染：主图（十字线） ===== */
@@ -358,29 +444,49 @@ function renderMain(){
   const color=metric==="price"?"#f9a825":"#1565c0";
   const markLine=[];
   const metricName={pe:"PE(TTM)",pb:"PB",price:"价格"}[metric];
-  if(metric==="pe"&&rec.pe!=null)
-    markLine.push({yAxis:rec.pe,label:{formatter:`当前 ${fmt(rec.pe)}（分位 ${pctTxt(rec.pe_pct)}）`,position:"insideEndTop"}});
-  if(metric==="pb"&&rec.pb!=null)
-    markLine.push({yAxis:rec.pb,label:{formatter:`当前 ${fmt(rec.pb)}（分位 ${pctTxt(rec.pb_pct)}）`,position:"insideEndTop"}});
-  if(metric==="price"&&rec.price!=null)
-    markLine.push({yAxis:rec.price,label:{formatter:`当前 ${fmt(rec.price)}`,position:"insideEndTop"}});
+  const lastVal=pts.length?pts[pts.length-1][1]:null;
+  /* 当前线优先取所选日期快照值，避免与快照分位错配；缺值时回退到序列末点 */
+  const cur=metric==="pe"?(rec.pe??lastVal)
+           :metric==="pb"?(rec.pb??lastVal)
+           :(rec.price??lastVal);
+  const ma=seriesMean(pts);
+  const span=spanYears(pts);
+  const spanTxt=span>0?`近${span.toFixed(1).replace(/\.0$/,"")}年`:`近${WINDOW_YEARS}年`;
+  const maTxt=span>=WINDOW_YEARS-0.5
+    ? `近${WINDOW_YEARS}年均值 ${fmt(ma)}`
+    : (span>=0.1?`均值 ${fmt(ma)}（${span.toFixed(1)}年数据）`:`均值 ${fmt(ma)}`);
+  const curPct=metric==="pe"?rec.pe_pct:(metric==="pb"?rec.pb_pct:rec.price_pct);
+  const labelBase={fontSize:11,backgroundColor:"rgba(255,255,255,.9)",padding:[3,6],borderRadius:4};
+  if(cur!=null)
+    markLine.push({yAxis:cur,
+      lineStyle:{color:"#c62828",type:"dashed",width:1.6},
+      label:{...labelBase,color:"#c62828",position:"insideEndTop",
+        formatter:metric==="price"?`当前价格 ${fmt(cur)}`
+                                  :`当前 ${fmt(cur)}（分位 ${pctTxt(curPct)}）`}});
+  if(ma!=null && pts.length>1)
+    markLine.push({yAxis:ma,
+      lineStyle:{color:"#00897b",type:"dashed",width:1.4},
+      label:{...labelBase,color:"#00897b",position:"insideEndBottom",
+        formatter:maTxt}});
   mainChart.setOption({
     animation:false,
-    title:{text:`${name} · ${metricName}（近${WINDOW_YEARS}年）`,left:"center",textStyle:{fontSize:14}},
+    title:{text:`${name} · ${metricName}（${spanTxt}）`,left:"center",
+      textStyle:{fontSize:15,fontWeight:700,color:"#e8f8ff"}},
     grid:{left:56,right:16,top:42,bottom:28},
     tooltip:{trigger:"axis",axisPointer:{type:"cross",crossStyle:{color:"#999"},
       label:{backgroundColor:"#546e7a"}},
       valueFormatter:v=>v==null?"—":Number(v).toFixed(2)},
-    xAxis:{type:"time",boundaryGap:false,axisLabel:{formatter:"{yyyy}-{MM}"}},
-    yAxis:{type:"value",scale:true,name:metric==="price"?"元/克":metric.toUpperCase()},
+    xAxis:{type:"time",boundaryGap:false,
+      axisLabel:{formatter:"{yyyy}-{MM}",color:"#9fb3c8"}},
+    yAxis:{type:"value",scale:true,name:metric==="price"?"元/克":metric.toUpperCase(),
+      nameTextStyle:{color:"#9fb3c8",fontWeight:700},axisLabel:{color:"#9fb3c8"}},
     series:[{type:"line",data:pts,showSymbol:false,smooth:true,
       lineStyle:{width:1.6,color},areaStyle:{color,opacity:0.08},
-      markLine:{silent:true,symbol:"none",lineStyle:{color:"#c62828",type:"dashed"},
-        data:markLine}}]
+      markLine:{silent:true,symbol:"none",animation:false,data:markLine}}]
   },true);
   $("#chartHint").innerHTML=curMetric==="price"
-    ? "黄金无 PE/PB 估值概念，此处为价格走势（价格分位不代表估值高低）"
-    : `PE/PB 分位 = 当前值在近 ${WINDOW_YEARS} 年历史中的位置；当前 ${pctTxt(rec.pe_pct!=null?rec.pe_pct:rec.pb_pct)}，可对照上方温带图例判断`;
+    ? "黄金无 PE/PB 估值概念，此处为价格走势；红虚线=当前价格，青虚线=展示区间均值"
+    : `PE/PB 分位 = 当前值在近 ${WINDOW_YEARS} 年历史中的位置；红虚线=当前估值，青虚线=展示区间均值`;
 }
 
 /* ===== 日期切换 ===== */
@@ -388,7 +494,8 @@ function switchDate(d){
   curDate=d;
   const recs=snapsOf(d);
   $("#dateMeta").textContent=`共 ${DATES.length} 期 · 当前第 ${DATES.indexOf(d)+1} 期`;
-  renderPortfolioBar(recs); renderMarketBar(recs); renderCards(recs); renderTable(recs);
+  renderPortfolioBar(recs); renderMarketBar(recs); renderFocus(recs);
+  renderCards(recs); renderTable(recs);
   renderMain();
 }
 
