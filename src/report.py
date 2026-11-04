@@ -246,7 +246,9 @@ function normDate(s){
   return s;
 }
 function normPts(arr){
-  return (arr||[]).map(p=>[normDate(p[0]),p[1]]).filter(p=>p[0]>=windowStart());
+  const lo=windowStart(), hi=curDate;
+  return (arr||[]).map(p=>[normDate(p[0]),p[1]])
+    .filter(p=>p[0]>=lo && p[0]<=hi);
 }
 /* 综合分位：PE/PB 分位等权（仅纳入分级有效者，避免单点快照拉偏） */
 function bandOfPct(p){
@@ -455,7 +457,11 @@ function renderMain(){
   const color=metric==="price"?"#f9a825":"#1565c0";
   const markLine=[];
   const metricName={pe:"PE(TTM)",pb:"PB",price:"价格"}[metric];
-  const cur=pts.length?pts[pts.length-1][1]:null;
+  const lastVal=pts.length?pts[pts.length-1][1]:null;
+  /* 当前线优先取所选日期快照值，避免与快照分位错配；缺值时回退到序列末点 */
+  const cur=metric==="pe"?(rec.pe??lastVal)
+           :metric==="pb"?(rec.pb??lastVal)
+           :(rec.price??lastVal);
   const ma=seriesMean(pts);
   const span=spanYears(pts);
   const spanTxt=span>0?`近${span.toFixed(1).replace(/\.0$/,"")}年`:`近${WINDOW_YEARS}年`;
@@ -470,7 +476,7 @@ function renderMain(){
       label:{...labelBase,color:"#c62828",position:"insideEndTop",
         formatter:metric==="price"?`当前价格 ${fmt(cur)}`
                                   :`当前 ${fmt(cur)}（分位 ${pctTxt(curPct)}）`}});
-  if(ma!=null)
+  if(ma!=null && pts.length>1)
     markLine.push({yAxis:ma,
       lineStyle:{color:"#00897b",type:"dashed",width:1.4},
       label:{...labelBase,color:"#00897b",position:"insideEndBottom",
