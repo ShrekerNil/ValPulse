@@ -3,3 +3,4 @@ matplotlib>=3.7
 beautifulsoup4>=4.12
 lxml>=4.9
 PyYAML>=6.0
+pypdf>=4.0

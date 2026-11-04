@@ -36,6 +36,18 @@ def _pe_key_of(rows: list) -> str:
     return "ttmPe"
 
 
+def _pb_key_of(rows: list) -> str:
+    """按数据源返回可用的 PB 字段名（乐咕 addPb / 蛋卷、multpl、factsheet 均为 pb）"""
+    if not rows:
+        return "addPb"
+    keys = set()
+    for r in rows[:20]:
+        keys.update(r.keys())
+    if "addPb" in keys:
+        return "addPb"
+    return "pb"
+
+
 def fetch_all(cfg: dict) -> tuple:
     """抓取全部标的原始数据，返回 (raw, failed)"""
     fcfg = cfg.get("fetch", {})
@@ -63,7 +75,8 @@ def fetch_all(cfg: dict) -> tuple:
                     log.info("%s 走中证官网 PE 主源（%d 行）", code, len(entry["pe"]))
             elif market == "cn":
                 entry["pe"] = lg.fetch_pe(code)
-                entry["pb"] = lg.fetch_pb(code)
+                if not item.get("pb_source"):
+                    entry["pb"] = lg.fetch_pb(code)
                 if not entry["pe"]:
                     csi = fetchers.fetch_csi_pe(code, window)
                     if csi:
@@ -77,6 +90,18 @@ def fetch_all(cfg: dict) -> tuple:
             elif source == "legulegu_hsi":
                 entry["pe"] = lg.fetch_hsi_pe(code)
                 entry["frequency"] = "monthly"
+            # 免费 PB 补充源：蛋卷（周频历史）、multpl（标普季度历史）、
+            # 中证 factsheet（仅最新一期快照，无历史）
+            pb_source = item.get("pb_source")
+            if pb_source and market != "gold":
+                if pb_source == "danjuan":
+                    entry["pb"] = fetchers.fetch_danjuan_pb(code)
+                elif pb_source == "multpl":
+                    entry["pb"] = fetchers.fetch_multpl_pb()
+                elif pb_source == "factsheet":
+                    entry["pb"] = fetchers.fetch_csi_factsheet_pb(code)
+                if entry["pb"]:
+                    log.info("%s PB 走 %s（%d 行）", code, pb_source, len(entry["pb"]))
         except Exception as e:  # 单个标的失败不影响整体
             log.exception("%s 抓取异常: %s", code, e)
         if not entry["pe"] and not entry["pb"] and not entry.get("price_series"):
@@ -124,11 +149,16 @@ def compute_records(cfg: dict, raw: dict, tx: dict) -> list:
             continue
         pe_key = _pe_key_of(entry["pe"])
         pe_eval = pct_mod.evaluate(entry["pe"], pe_key, window, bands)
-        pb_eval = pct_mod.evaluate(entry["pb"], PB_KEY, window, bands)
+        pb_eval = pct_mod.evaluate(entry["pb"], _pb_key_of(entry["pb"]),
+                                   window, bands)
         if pe_eval["sample_count"] < min_samples:
             log.warning("%s PE 窗口样本仅 %d 个，标注数据不足",
                         code, pe_eval["sample_count"])
             pe_eval["band"] = "unknown"
+        if pb_eval["sample_count"] < min_samples:
+            log.warning("%s PB 窗口样本仅 %d 个，标注数据不足",
+                        code, pb_eval["sample_count"])
+            pb_eval["band"] = "unknown"
         tx_sym = fetchers.tencent_symbol(code, meta["market"])
         quote = tx.get(tx_sym, {})
         rec.update({
@@ -156,9 +186,10 @@ def save_series_to_db(conn, raw: dict):
                            [{"date": r["date"], "value": r[key]} for r in entry["pe"]
                             if isinstance(r.get(key), (int, float)) and r[key] > 0])
         if entry.get("pb"):
+            key = _pb_key_of(entry["pb"])
             db.save_series(conn, code, "pb",
-                           [{"date": r["date"], "value": r[PB_KEY]} for r in entry["pb"]
-                            if isinstance(r.get(PB_KEY), (int, float)) and r[PB_KEY] > 0])
+                           [{"date": r["date"], "value": r[key]} for r in entry["pb"]
+                            if isinstance(r.get(key), (int, float)) and r[key] > 0])
         if entry.get("price_series"):
             # 注意字段名转换：fetchers 返回 price，db 层统一用 value
             db.save_series(conn, code, "price",
@@ -189,22 +220,22 @@ def _run() -> int:
     tx = fetchers.fetch_tencent(tx_map)
     log.info("腾讯行情获取 %d 条", len(tx))
 
-    # 跨境指数腾讯未覆盖的（如标普500），用东方财富兜底拿价格涨跌
+    # 腾讯未覆盖的标的（跨境指数、中证 H 系列如 H30184）用东方财富兜底价格
     em_map = {}
     for item in all_indexes(cfg):
-        if item["market"] != "cross":
+        if item["market"] == "gold":
             continue
         sym = fetchers.tencent_symbol(item["code"], item["market"])
         if sym in tx:
             continue
-        esym = fetchers.eastmoney_symbol(item["code"])
+        esym = fetchers.eastmoney_symbol(item["code"], item["market"])
         if esym:
-            em_map[esym] = item["code"]
+            em_map[esym] = (item["code"], item["market"])
     if em_map:
-        em = fetchers.fetch_eastmoney(em_map)
-        for esym, code in em_map.items():
+        em = fetchers.fetch_eastmoney({k: v[0] for k, v in em_map.items()})
+        for esym, (code, market) in em_map.items():
             if esym in em:
-                tx[fetchers.tencent_symbol(code, "cross")] = em[esym]
+                tx[fetchers.tencent_symbol(code, market)] = em[esym]
         log.info("东财兜底行情 %d 条", len(em))
 
     records = compute_records(cfg, raw, tx)

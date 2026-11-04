@@ -13,6 +13,7 @@ fetch:
 
 # A股指数：默认乐咕源（等权口径 PE-TTM / PB），历史约2005年至今
 # source: csi 的走中证指数官网 PE（乐咕未收录的指数，如A500、证券公司）
+# pb_source: danjuan（蛋卷周频历史）/ factsheet（中证官方PDF最新值，无历史）
 indexes:
   - code: "000300.SH"
     name: "沪深300"
@@ -23,7 +24,8 @@ indexes:
   - code: "000510.CSI"
     name: "中证A500"
     category: "宽基"
-    source: "csi"           # 2024年发布，中证官网有2016年起回溯PE；乐咕未收录，PB暂无免费源
+    source: "csi"           # 2024年发布，中证官网有2016年起回溯PE；乐咕未收录
+    pb_source: "factsheet"  # 中证官方 factsheet 最新市净率（无免费历史，分位标注数据不足）
   - code: "000852.SH"
     name: "中证1000"
     category: "宽基"
@@ -42,10 +44,11 @@ indexes:
   - code: "000933.SH"
     name: "中证医药卫生"
     category: "行业"
-  - code: "399987.SZ"
+  - code: "H30184.CSI"
     name: "中证全指半导体"
     category: "行业"
-    source: "csi"
+    source: "csi"           # 中证全指半导体产品与设备指数；乐咕未收录，走中证官网PE
+    pb_source: "factsheet"  # 中证官方 factsheet 最新市净率（无免费历史，分位标注数据不足）
   - code: "399986.SZ"
     name: "中证银行"
     category: "行业"
@@ -53,6 +56,7 @@ indexes:
     name: "证券公司"
     category: "行业"
     source: "csi"           # 中证全指证券公司指数，乐咕未收录，走中证官网PE
+    pb_source: "danjuan"    # 蛋卷周频PB历史，可算10年分位（口径与中证官方略有差异）
   - code: "000992.SH"
     name: "全指金融"
     category: "行业"
@@ -74,11 +78,13 @@ cross_border:
   - code: "SPX"
     name: "标普500"
     category: "宽基"
-    source: "multpl"        # 月频 PE（multpl.com），无 PB
+    source: "multpl"        # 月频 PE（multpl.com）
+    pb_source: "multpl"     # 季频 PB（multpl.com，1999-12 起）
   - code: "HSTECH"
     name: "恒生科技"
     category: "宽基"
-    source: "legulegu_hsi"  # 月频 PE（乐咕恒生专题页，数据源恒生指数公司），无 PB
+    source: "legulegu_hsi"  # 月频 PE（乐咕恒生专题页，数据源恒生指数公司）
+    pb_source: "danjuan"    # 蛋卷周频PB历史（2020-07 起）
 
 # 我的持仓（定投中）：看板"我的持仓"模块按此渲染
 holdings:

@@ -1,9 +1,11 @@
 # -*- coding: utf-8 -*-
-"""数据抓取模块：乐咕（A股 PE/PB）、中证官方（PE 兜底/A500与券商主源）、腾讯（行情）、multpl（标普500）、乐咕恒生专题页、东财（黄金K线/跨境兜底）"""
+"""数据抓取模块：乐咕（A股 PE/PB）、中证官方（PE 兜底/A500与券商主源）、腾讯（行情）、multpl（标普500 PE/PB）、
+乐咕恒生专题页、蛋卷（指数 PB 历史）、中证 factsheet（最新 PB）、东财（黄金K线/行情兜底）"""
+import io
 import logging
 import re
 import time
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
 
 import requests
 from bs4 import BeautifulSoup
@@ -176,8 +178,11 @@ def fetch_eastmoney(secids: dict) -> dict:
     return out
 
 
-def eastmoney_symbol(index_code: str) -> str:
-    """跨境指数代码转东财 secid：SPX -> 100.SPX，HSTECH -> 124.HSTECH"""
+def eastmoney_symbol(index_code: str, market: str = "cross") -> str:
+    """指数代码转东财 secid：SPX -> 100.SPX，HSTECH -> 124.HSTECH；
+    中证 H 系列（如 H30184.CSI）腾讯不收录，走东财 2.H30184"""
+    if market == "cn" and index_code.startswith("H") and index_code.endswith(".CSI"):
+        return "2." + index_code.split(".")[0]
     table = {"SPX": "100.SPX", "HSTECH": "124.HSTECH", "NDX": "100.NDX",
              "HSI": "124.HSI"}
     return table.get(index_code, "")
@@ -280,9 +285,111 @@ def fetch_multpl_spx() -> list:
         return []
 
 
+def fetch_multpl_pb() -> list:
+    """multpl.com 标普500 季度市净率历史（1999-12 至今；† 标记为估算值）"""
+    try:
+        r = requests.get(
+            "https://www.multpl.com/s-p-500-price-to-book/table/by-quarter",
+            headers=BASE_HEADERS, timeout=30)
+        soup = BeautifulSoup(r.text, "lxml")
+        rows = []
+        for tr in soup.find_all("tr"):
+            tds = tr.find_all("td")
+            if len(tds) != 2:
+                continue
+            dt = _parse_month(tds[0].get_text(strip=True))
+            val = _num(tds[1].get_text(strip=True))
+            if dt and val:
+                rows.append({"date": dt, "pb": val})
+        rows.sort(key=lambda x: x["date"])
+        if rows:
+            log.info("multpl 标普500 PB 历史 %d 行（季频）", len(rows))
+        return rows
+    except requests.RequestException as e:
+        log.warning("multpl PB 抓取失败: %s", e)
+        return []
+
+
+def danjuan_symbol(index_code: str) -> str:
+    """指数代码转蛋卷代码：000300.SH -> SH000300，399975.SZ -> SZ399975，HSTECH -> HKHSTECH"""
+    if index_code == "HSTECH":
+        return "HKHSTECH"
+    if "." not in index_code:
+        return ""
+    code, suffix = index_code.split(".", 1)
+    if suffix in ("SH", "SZ"):
+        return suffix + code
+    return ""
+
+
+def fetch_danjuan_pb(index_code: str, day: str = "all") -> list:
+    """蛋卷基金（雪球）指数 PB 历史：周频、无需鉴权，day 仅支持 3y/5y/all"""
+    code = danjuan_symbol(index_code)
+    if not code:
+        return []
+    try:
+        r = requests.get(
+            f"https://danjuanfunds.com/djapi/index_eva/pb_history/{code}",
+            params={"day": day}, headers=BASE_HEADERS, timeout=25)
+        data = r.json().get("data") or {}
+        rows = []
+        for item in data.get("index_eva_pb_growths") or []:
+            pb, ts = item.get("pb"), item.get("ts")
+            if pb is None or not ts:
+                continue
+            d = datetime.fromtimestamp(ts / 1000,
+                                       tz=timezone(timedelta(hours=8))).date()
+            rows.append({"date": d.isoformat(), "pb": float(pb)})
+        rows.sort(key=lambda x: x["date"])
+        if rows:
+            log.info("蛋卷 %s PB 历史 %d 行（周频）", code, len(rows))
+        return rows
+    except (requests.RequestException, ValueError) as e:
+        log.warning("蛋卷 PB 抓取失败 %s: %s", code, e)
+        return []
+
+
+def fetch_csi_factsheet_pb(index_code: str) -> list:
+    """中证官方 factsheet PDF 的市净率快照（仅最新一期，无历史归档）。
+
+    历史分位无法由此计算；作为 000510/H30184 等无免费历史 PB 源时的
+    现值补充，pipeline 会因样本不足标注"数据不足"。
+    """
+    code = index_code.split(".")[0]
+    url = ("https://oss-ch.csindex.com.cn/static/html/csindex/public/uploads/"
+           f"indices/detail/files/zh_CN/{code}factsheet.pdf")
+    try:
+        from pypdf import PdfReader
+    except ImportError:
+        log.warning("未安装 pypdf，跳过中证 factsheet PB（%s）", code)
+        return []
+    try:
+        r = requests.get(url, headers=BASE_HEADERS, timeout=40)
+        if r.status_code != 200 or b"%PDF" not in r.content[:16]:
+            log.warning("中证 factsheet 不可用 %s（HTTP %s）", code, r.status_code)
+            return []
+        reader = PdfReader(io.BytesIO(r.content))
+        text = "\n".join(p.extract_text(extraction_mode="layout") or ""
+                         for p in reader.pages)
+        m = re.search(r"市净率\s+([0-9]+(?:\.[0-9]+)?)", text)
+        if not m:
+            log.warning("中证 factsheet 未找到市净率 %s", code)
+            return []
+        dates = re.findall(r"(\d{4})年(\d{1,2})月(\d{1,2})日", text)
+        dt = ""
+        if dates:
+            y, mo, d = max(dates, key=lambda x: (int(x[0]), int(x[1]), int(x[2])))
+            dt = f"{y}-{int(mo):02d}-{int(d):02d}"
+        log.info("中证 factsheet %s 市净率 %s（%s）", code, m.group(1), dt or "日期不明")
+        return [{"date": dt, "pb": float(m.group(1))}]
+    except (requests.RequestException, ValueError) as e:
+        log.warning("中证 factsheet 解析失败 %s: %s", code, e)
+        return []
+
+
 def _num(s):
     try:
-        return float(str(s).replace(",", ""))
+        return float(str(s).replace(",", "").replace("†", "").strip())
     except (TypeError, ValueError):
         return None
 
@@ -297,8 +404,12 @@ def _parse_month(s: str):
 
 
 def tencent_symbol(index_code: str, market: str) -> str:
-    """指数代码转腾讯代码：000300.SH -> sh000300；HSTECH -> hkHSTECH；SPX -> usSPX"""
+    """指数代码转腾讯代码：000300.SH -> sh000300；000510.CSI -> sh000510；HSTECH -> hkHSTECH；SPX -> usSPX"""
     if market == "cn":
-        prefix = "sh" if index_code.endswith(".SH") else "sz"
-        return prefix + index_code.split(".")[0]
+        code = index_code.split(".")[0]
+        # 沪市：.SH 后缀；中证指数 .CSI 以 000 开头也属沪市（如 000510.CSI），399 开头为深市
+        is_sh = index_code.endswith(".SH") or (
+            index_code.endswith(".CSI") and code.startswith("000")
+        )
+        return ("sh" if is_sh else "sz") + code
     return ("hk" + index_code) if index_code.startswith("HS") else ("us" + index_code)
