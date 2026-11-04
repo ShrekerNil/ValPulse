@@ -4,7 +4,7 @@
 口径参考蛋卷/且慢/有知有行的主流做法：
 - 分位 <20% 低估：可加大定投；20-70% 合理：正常定投；
   70-90% 偏高：减少定投；>90% 高估：分批止盈。
-- 市场温度 = 宽基指数 PE 分位等权均值（0-100），五档温带。
+- 市场温度 = 宽基指数综合分位（PE/PB 分位等权）均值（0-100），五档温带。
 - 黄金无 PE/PB，只参与价格分位展示，不参与温度合成。
 """
 import logging
@@ -51,14 +51,22 @@ def _mean(values: list) -> float | None:
     return sum(vals) / len(vals) if vals else None
 
 
+def _valuation_pct(rec: dict) -> float | None:
+    """优先用 PE/PB 综合分位，缺省回退 PE 分位（兼容旧快照）"""
+    if rec.get("comp_percentile") is not None:
+        return rec["comp_percentile"]
+    return rec.get("pe_percentile")
+
+
 def market_temperature(records: list, broad_codes: list) -> dict:
-    """大盘温度：宽基指数 PE 分位等权均值（黄金等无 PE 标的自动排除）"""
+    """大盘温度：宽基指数综合分位（PE/PB 等权）均值（黄金等无估值标的自动排除）"""
     by_code = {r["code"]: r for r in records}
     pcts, names = [], []
     for code in broad_codes:
         r = by_code.get(code)
-        if r and r.get("pe_percentile") is not None:
-            pcts.append(r["pe_percentile"])
+        pct = _valuation_pct(r) if r else None
+        if pct is not None:
+            pcts.append(pct)
             names.append(r["name"])
     temp = _mean(pcts)
     if temp is None:
@@ -78,8 +86,9 @@ def portfolio_temperature(holdings: list) -> dict:
                 gold_notes.append(
                     f'{rec["name"]}价格分位 {rec["price_percentile"]:.0f}%（仅价格参考）')
             continue
-        if rec.get("pe_percentile") is not None:
-            pcts.append(rec["pe_percentile"])
+        pct = _valuation_pct(rec)
+        if pct is not None:
+            pcts.append(pct)
     temp = _mean(pcts)
     if temp is None:
         return {"temperature": None, "band": "数据不足", "action": "",

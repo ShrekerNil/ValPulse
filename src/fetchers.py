@@ -349,11 +349,53 @@ def fetch_danjuan_pb(index_code: str, day: str = "all") -> list:
         return []
 
 
-def fetch_csi_factsheet_pb(index_code: str) -> list:
-    """中证官方 factsheet PDF 的市净率快照（仅最新一期，无历史归档）。
+def fetch_multpl_spx_dy() -> list:
+    """multpl.com 标普500 月度股息率历史（%），数据可回溯至 1871 年"""
+    try:
+        r = requests.get(
+            "https://www.multpl.com/s-p-500-dividend-yield/table/by-month",
+            headers=BASE_HEADERS, timeout=30)
+        soup = BeautifulSoup(r.text, "lxml")
+        rows = []
+        for tr in soup.find_all("tr"):
+            tds = tr.find_all("td")
+            if len(tds) != 2:
+                continue
+            dt = _parse_month(tds[0].get_text(strip=True))
+            val = _num(tds[1].get_text(strip=True))
+            if dt and val:
+                rows.append({"date": dt, "dy": val})
+        rows.sort(key=lambda x: x["date"])
+        if rows:
+            log.info("multpl 标普500 股息率 %d 行（月频）", len(rows))
+        return rows
+    except requests.RequestException as e:
+        log.warning("multpl 股息率抓取失败: %s", e)
+        return []
 
-    历史分位无法由此计算；作为 000510/H30184 等无免费历史 PB 源时的
-    现值补充，pipeline 会因样本不足标注"数据不足"。
+
+def fetch_danjuan_yield(index_code: str) -> list:
+    """蛋卷 detail 接口的最新股息率（%），仅单点，需按周累积成历史"""
+    code = danjuan_symbol(index_code)
+    if not code:
+        return []
+    try:
+        r = requests.get(f"https://danjuanfunds.com/djapi/index_eva/detail/{code}",
+                         headers=BASE_HEADERS, timeout=25)
+        data = r.json().get("data") or {}
+        y = data.get("yeild")
+        if isinstance(y, (int, float)) and y > 0:
+            return [{"date": date.today().isoformat(), "dy": round(float(y) * 100, 2)}]
+    except (requests.RequestException, ValueError) as e:
+        log.warning("蛋卷股息率抓取失败 %s: %s", code, e)
+    return []
+
+
+def fetch_csi_factsheet_metrics(index_code: str) -> dict:
+    """中证官方 factsheet PDF 的最新估值快照：{date, pb, dy}。
+
+    仅最新一期，无历史归档；作为 A500/半导体等无免费历史源时的现值补充，
+    pipeline 会因样本不足标注"数据不足"。
     """
     code = index_code.split(".")[0]
     url = ("https://oss-ch.csindex.com.cn/static/html/csindex/public/uploads/"
@@ -361,35 +403,55 @@ def fetch_csi_factsheet_pb(index_code: str) -> list:
     try:
         from pypdf import PdfReader
     except ImportError:
-        log.warning("未安装 pypdf，跳过中证 factsheet PB（%s）", code)
-        return []
+        log.warning("未安装 pypdf，跳过中证 factsheet（%s）", code)
+        return {}
     try:
         r = requests.get(url, headers=BASE_HEADERS, timeout=40)
         if r.status_code != 200 or b"%PDF" not in r.content[:16]:
             log.warning("中证 factsheet 不可用 %s（HTTP %s）", code, r.status_code)
-            return []
+            return {}
         reader = PdfReader(io.BytesIO(r.content))
         text = "\n".join(p.extract_text(extraction_mode="layout") or ""
                          for p in reader.pages)
-        m = re.search(r"市净率\s+([0-9]+(?:\.[0-9]+)?)", text)
-        if not m:
-            log.warning("中证 factsheet 未找到市净率 %s", code)
-            return []
+        out = {}
+        m_pb = re.search(r"市净率\s+([0-9]+(?:\.[0-9]+)?)", text)
+        m_dy = re.search(r"股息率\s+([0-9]+(?:\.[0-9]+)?)%", text)
+        if m_pb:
+            out["pb"] = float(m_pb.group(1))
+        if m_dy:
+            out["dy"] = float(m_dy.group(1))
         dates = re.findall(r"(\d{4})年(\d{1,2})月(\d{1,2})日", text)
-        dt = ""
         if dates:
             y, mo, d = max(dates, key=lambda x: (int(x[0]), int(x[1]), int(x[2])))
-            dt = f"{y}-{int(mo):02d}-{int(d):02d}"
-        log.info("中证 factsheet %s 市净率 %s（%s）", code, m.group(1), dt or "日期不明")
-        return [{"date": dt, "pb": float(m.group(1))}]
+            out["date"] = f"{y}-{int(mo):02d}-{int(d):02d}"
+        if not out.get("pb") and not out.get("dy"):
+            log.warning("中证 factsheet 未找到市净率/股息率 %s", code)
+        else:
+            log.info("中证 factsheet %s PB=%s 股息率=%s（%s）", code,
+                     out.get("pb"), out.get("dy"), out.get("date", "日期不明"))
+        return out
     except (requests.RequestException, ValueError) as e:
         log.warning("中证 factsheet 解析失败 %s: %s", code, e)
-        return []
+        return {}
+
+
+def fetch_dividend_yield(index_code: str) -> list:
+    """指数股息率（%）：标普走 multpl 月频历史；其余优先蛋卷最新值，回退中证 factsheet"""
+    if index_code == "SPX":
+        return fetch_multpl_spx_dy()
+    rows = fetch_danjuan_yield(index_code)
+    if rows:
+        return rows
+    m = fetch_csi_factsheet_metrics(index_code)
+    if m.get("dy") and m.get("date"):
+        return [{"date": m["date"], "dy": m["dy"]}]
+    return []
 
 
 def _num(s):
     try:
-        return float(str(s).replace(",", "").replace("†", "").strip())
+        return float(str(s).replace(",", "").replace("†", "")
+                     .replace("%", "").strip())
     except (TypeError, ValueError):
         return None
 

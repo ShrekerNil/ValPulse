@@ -41,6 +41,12 @@ CREATE TABLE IF NOT EXISTS snapshots (
     pb_pct   REAL,
     pb_band  TEXT,
     pb_samples INTEGER,
+    dy       REAL,
+    dy_pct   REAL,
+    dy_band  TEXT,
+    dy_samples INTEGER,
+    comp_pct REAL,
+    comp_band TEXT,
     price    REAL,
     price_pct REAL,
     price_band TEXT,
@@ -51,7 +57,7 @@ CREATE INDEX IF NOT EXISTS idx_series_code ON series(code, metric, date);
 CREATE INDEX IF NOT EXISTS idx_snap_date ON snapshots(date);
 """
 
-METRICS = ("pe", "pb", "price")
+METRICS = ("pe", "pb", "price", "dy")
 
 
 def connect() -> sqlite3.Connection:
@@ -63,6 +69,13 @@ def connect() -> sqlite3.Connection:
 
 def init_db(conn: sqlite3.Connection):
     conn.executescript(SCHEMA)
+    # 存量数据库补列（股息率/综合分位为后加字段）
+    cols = {row["name"] for row in conn.execute("PRAGMA table_info(snapshots)")}
+    for col, typ in (("dy", "REAL"), ("dy_pct", "REAL"), ("dy_band", "TEXT"),
+                     ("dy_samples", "INTEGER"), ("comp_pct", "REAL"),
+                     ("comp_band", "TEXT")):
+        if col not in cols:
+            conn.execute(f"ALTER TABLE snapshots ADD COLUMN {col} {typ}")
     conn.commit()
 
 
@@ -88,16 +101,26 @@ def save_snapshot(conn: sqlite3.Connection, report_date: str, records: list):
             r.get("pe_samples"),
             r.get("pb_value"), r.get("pb_percentile"), r.get("pb_band"),
             r.get("pb_samples"),
+            r.get("dy_value"), r.get("dy_percentile"), r.get("dy_band"),
+            r.get("dy_samples"),
+            r.get("comp_percentile"), r.get("comp_band"),
             r.get("price"), r.get("price_percentile"), r.get("price_band"),
             r.get("change_pct"),
         ))
     conn.executemany(
-        "INSERT INTO snapshots VALUES(" + ",".join(["?"] * 18) + ") "
+        "INSERT INTO snapshots(date,code,name,market,category,frequency,"
+        "pe,pe_pct,pe_band,pe_samples,pb,pb_pct,pb_band,pb_samples,"
+        "dy,dy_pct,dy_band,dy_samples,comp_pct,comp_band,"
+        "price,price_pct,price_band,change_pct) "
+        "VALUES(" + ",".join(["?"] * 24) + ") "
         "ON CONFLICT(date, code) DO UPDATE SET "
         "name=excluded.name, pe=excluded.pe, pe_pct=excluded.pe_pct, "
         "pe_band=excluded.pe_band, pe_samples=excluded.pe_samples, "
         "pb=excluded.pb, pb_pct=excluded.pb_pct, pb_band=excluded.pb_band, "
-        "pb_samples=excluded.pb_samples, price=excluded.price, "
+        "pb_samples=excluded.pb_samples, dy=excluded.dy, dy_pct=excluded.dy_pct, "
+        "dy_band=excluded.dy_band, dy_samples=excluded.dy_samples, "
+        "comp_pct=excluded.comp_pct, comp_band=excluded.comp_band, "
+        "price=excluded.price, "
         "price_pct=excluded.price_pct, price_band=excluded.price_band, "
         "change_pct=excluded.change_pct", rows)
     conn.commit()

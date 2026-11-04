@@ -66,8 +66,12 @@ def build_summary(records: list, holdings: list, port_temp: dict,
             val = f"金价 {_fmt(r.get('price'))} 元/克 · 价格分位 {_pct(r.get('price_percentile'))}"
             sig, color = "仅价格参考", "#757575"
         else:
-            val = f"PE分位 {_pct(r.get('pe_percentile'))}"
-            sig, color = SIGNAL_LABELS.get(r.get("pe_band"), SIGNAL_LABELS["unknown"])
+            pct = r.get("comp_percentile")
+            if pct is None:
+                pct = r.get("pe_percentile")
+            val = f"综合分位 {_pct(pct)}"
+            band = r.get("comp_band") or r.get("pe_band")
+            sig, color = SIGNAL_LABELS.get(band, SIGNAL_LABELS["unknown"])
         h_rows.append(
             "<tr>"
             f"<td>{h['fund']}<br><span style='color:#8899aa;font-size:12px;font-family:'JetBrains Mono',monospace;'>"
@@ -89,20 +93,20 @@ def build_summary(records: list, holdings: list, port_temp: dict,
         f'{mkt_temp["temperature"]:.0f}℃</b> · {mkt_temp["band"]} · '
         f'{mkt_temp["action"]}<br>'
         f'<span style="color:#8899aa;font-size:12px;font-family:"JetBrains Mono",monospace;">'
-        f'基于 {"、".join(mkt_temp.get("based_on", []))} PE 分位等权合成</span></p>'
+        f'基于 {"、".join(mkt_temp.get("based_on", []))} 综合分位（PE/PB 等权）合成</span></p>'
         if mkt_temp.get("temperature") is not None else
         '<p style="color:#999">宽基数据不足</p>')
 
     # 全部指数简表
     rows = []
-    for r in records:
+    for idx, r in enumerate(records):
+        stripe = "#0d1115" if idx % 2 == 0 else "#111a24"
         if r.get("market") == "gold":
             rows.append(
-                "<tr>"
+                f'<tr style="background:{stripe}">'
                 f"<td>{r['name']}</td>"
-                f'<td colspan="2">金价 {_fmt(r.get("price"))} 元/克 · '
-                f'价格分位 {_pct(r.get("price_percentile"))}</td>'
-                f'<td colspan="2" style="color:#757575">黄金无 PE/PB 估值概念</td>'
+                f'<td colspan="6">金价 {_fmt(r.get("price"))} 元/克 · '
+                f'价格分位 {_pct(r.get("price_percentile"))}（黄金无 PE/PB/股息率）</td>'
                 f"<td>{_cell_chg(r.get('change_pct'))}</td>"
                 "</tr>"
             )
@@ -110,52 +114,69 @@ def build_summary(records: list, holdings: list, port_temp: dict,
         pe_color = BAND_COLORS.get(r.get("pe_band"), "#757575")
         pb_none = r.get("pb_value") is None
         pb_color = "#757575" if pb_none else BAND_COLORS.get(r.get("pb_band"), "#757575")
+        comp_band = r.get("comp_band") or r.get("pe_band")
+        comp_color = BAND_COLORS.get(comp_band, "#757575")
+        dy = r.get("dy_value")
+        dy_sub = ("样本不足" if r.get("dy_band") == "unknown"
+                  else _pct(r.get("dy_percentile")))
+        dy_txt = (f'<span style="color:#d6e4f0;font-weight:600">{_fmt(dy)}%</span>'
+                  f'<br><span style="color:#7f93a8;font-size:10px">'
+                  f'{dy_sub}</span>') if dy is not None else "-"
         rows.append(
-            "<tr>"
+            f'<tr style="background:{stripe}">'
             f"<td>{r['name']}</td>"
             f"<td><span style='color:{pe_color};font-weight:600'>{_fmt(r.get('pe_value'))}</span></td>"
             f"<td><span style='color:{pe_color}'>{_pct(r.get('pe_percentile'))}</span></td>"
-            f"<td style='background:#0d1115;color:#e8f8ff;font-weight:700;font-size:11px'>│</td>"
             f"<td><span style='color:{pb_color};font-weight:600'>{'-' if pb_none else _fmt(r.get('pb_value'))}</span></td>"
             f"<td><span style='color:{pb_color}'>{'-' if pb_none else _pct(r.get('pb_percentile'))}</span></td>"
+            f"<td>{dy_txt}</td>"
+            f"<td><span style='color:{comp_color};font-weight:700'>{_pct(r.get('comp_percentile'))}</span>"
+            f"<br><span style='color:{comp_color};font-size:10px'>{r.get('comp_band_cn', '')}</span></td>"
             f"<td>{_cell_chg(r.get('change_pct'))}</td>"
             "</tr>"
         )
-    low = [r["name"] for r in records if r.get("pe_band") == "undervalued"]
-    high = [r["name"] for r in records if r.get("pe_band") in ("high", "over")]
+    low = [r["name"] for r in records
+           if r.get("comp_percentile") is not None and r["comp_percentile"] < 20]
+    high = [r["name"] for r in records
+            if r.get("comp_percentile") is not None and r["comp_percentile"] > 70]
+    dual = [r["name"] for r in records
+            if r.get("pe_percentile") is not None and r["pe_percentile"] < 20
+            and r.get("pb_percentile") is not None and r["pb_percentile"] < 20]
     notes = []
     if low:
-        notes.append(f"<b style='color:#2e7d32'>低估（PE分位&lt;20%）</b>：{'、'.join(low)}")
+        notes.append(f"<b style='color:#2e7d32'>综合低估（&lt;20%）</b>：{'、'.join(low)}")
     if high:
-        notes.append(f"<b style='color:#c62828'>偏高/高估（PE分位&gt;70%）</b>：{'、'.join(high)}")
+        notes.append(f"<b style='color:#c62828'>综合偏高/高估（&gt;70%）</b>：{'、'.join(high)}")
+    if dual:
+        notes.append(f"<b style='color:#00796b'>PE/PB 双低</b>：{'、'.join(dual)}")
     if not notes:
-        notes.append("本周无 PE 分位低于 20% 或高于 70% 的指数")
+        notes.append("本周无综合分位低于 20% 或高于 70% 的指数")
     link = (f'<p><a href="{report_url}">查看完整看板'
             f'（走势图 / 历史日期回看）</a></p>') if report_url else ""
     table_head = (
         '<tr style="background:#0d1115;color:#e8f8ff;font-weight:700;">'
         '<th>指数</th><th>PE</th><th>PE分位</th>'
-        '<th style="background:#0d1115;color:#e8f8ff;font-weight:700;font-size:11px">│</th>'
-        '<th>PB</th><th>PB分位</th><th>日涨跌</th></tr>')
+        '<th>PB</th><th>PB分位</th><th>股息率</th><th>综合</th><th>日涨跌</th></tr>')
     return (
         '<html><body style="font-family:"JetBrains Mono","Noto Sans CJK SC",sans-serif;font-size:14px;color:#e6f0fa;background:#060b14;line-height:1.6;padding:24px;background-image:linear-gradient(rgba(255,255,255,.02) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.02) 1px,transparent 1px);background-size:40px 40px;">'
         '<h3 style="font-size:20px;font-weight:700;color:#00d4aa;text-align:center;letter-spacing:4px;border-bottom:2px solid #1a2f3d;padding-bottom:8px;margin:20px 0 10px;">我的持仓</h3>'
         + port_html
-        + '<table cellpadding="6" cellspacing="0" border="1" '
-          'style="border-collapse:collapse;border-color:#1a2a3a;font-size:12px;background:#0d1115;color:#d0e0f0;">'
-          '<tr style="background:#0d1115;color:#e8f8ff;font-weight:700;"><th>基金</th><th>估值状态</th>'
+        + '<table cellpadding="6" cellspacing="0" border="0" '
+          'style="border-collapse:collapse;border-color:#1a2a3a;font-size:12px;background:#0d1115;color:#d0e0f0;width:100%;">'
+          '<tr style="background:#0d1115;color:#e8f8ff;font-weight:700;border-bottom:1px solid #1a2a3a;"><th>基金</th><th>估值状态</th>'
           "<th>定投信号</th><th>日涨跌</th></tr>"
         + "".join(h_rows)
         + "</table>"
         '<h3 style="font-size:20px;font-weight:700;color:#00d4aa;text-align:center;letter-spacing:4px;border-bottom:2px solid #1a2f3d;padding-bottom:8px;margin:20px 0 10px;">大盘</h3>'
         + mkt_html
         + '<h3 style="font-size:20px;font-weight:700;color:#00d4aa;text-align:center;letter-spacing:4px;border-bottom:2px solid #1a2f3d;padding-bottom:8px;margin:20px 0 10px;">全部指数</h3>'
-          '<table cellpadding="6" cellspacing="0" border="1" '
-          'style="border-collapse:collapse;border-color:#1a2a3a;font-size:12px;background:#0d1115;color:#d0e0f0;">'
+          '<table cellpadding="6" cellspacing="0" border="0" '
+          'style="border-collapse:collapse;border-color:#1a2a3a;font-size:12px;background:#0d1115;color:#d0e0f0;width:100%;">'
         + table_head + "".join(rows) + "</table>"
         + f"<p>{'<br>'.join(notes)}</p>"
         + link
         + '<p style="color:#7ab0cc;font-size:12px;font-family:"JetBrains Mono",monospace;">分位基于近10年历史；'
+          "综合分位为 PE/PB 分位等权；股息率分位越高越便宜；"
           "「无PB数据」为数据源不提供该指标，非系统缺数；"
           "定投信号为规则化提示，不构成投资建议</p>"
         '</body></html>'
