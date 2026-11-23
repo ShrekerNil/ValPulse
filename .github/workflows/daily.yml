@@ -1,8 +1,8 @@
-name: weekly-valuation
+name: daily-valuation
 
 on:
   schedule:
-    - cron: "0 0 * * 6"   # 每周六 00:00 UTC = 北京时间 08:00
+    - cron: "0 12 * * *"   # 每天 12:00 UTC = 北京时间 20:00
   workflow_dispatch:       # 允许在 Actions 页面手动触发
 
 permissions:

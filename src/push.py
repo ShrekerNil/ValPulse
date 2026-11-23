@@ -58,9 +58,18 @@ def _pct(v):
 def build_summary(records: list, holdings: list, port_temp: dict,
                   mkt_temp: dict, report_url: str | None) -> str:
     """生成推送用的 HTML 摘要：持仓模块 + 大盘温度 + 全部指数简表"""
-    # 我的持仓
+    # 我的持仓（按场内/场外分组展示，场内可带盯盘提示）
     h_rows = []
+    last_group = None
     for h in holdings:
+        g = h.get("group") or "持仓"
+        if g != last_group:
+            if h_rows:  # 非首组前加空行分隔
+                h_rows.append('<tr><td colspan="4" style="padding:0"></td></tr>')
+            h_rows.append(
+                f'<tr style="background:#0d1115"><td colspan="4" '
+                f'style="color:#00d4aa;font-weight:800;letter-spacing:2px">{g}</td></tr>')
+            last_group = g
         r = h["record"]
         if h.get("is_gold"):
             val = f"金价 {_fmt(r.get('price'))} 元/克 · 价格分位 {_pct(r.get('price_percentile'))}"
@@ -72,10 +81,17 @@ def build_summary(records: list, holdings: list, port_temp: dict,
             val = f"综合分位 {_pct(pct)}"
             band = r.get("comp_band") or r.get("pe_band")
             sig, color = SIGNAL_LABELS.get(band, SIGNAL_LABELS["unknown"])
+        watch = h.get("watch")
+        watch_html = (f'<br><span style="color:#ffb74d;font-size:11px">'
+                      f'盯 {watch["metric"]}：<span style="color:#d6e4f0">{watch["rule"]}</span>'
+                      f'</span>') if watch and watch.get("metric") and watch.get("rule") else ""
+        etf_price = h.get("etf_price")
+        netval_html = (f'<br><span style="color:#00d4aa;font-weight:700;font-size:12px">'
+                       f'净值 {_fmt(etf_price)}</span>') if etf_price is not None else ""
         h_rows.append(
             "<tr>"
-            f"<td>{h['fund']}<br><span style='color:#8899aa;font-size:12px;font-family:'JetBrains Mono',monospace;'>"
-            f"跟踪：{r['name']}</span></td>"
+            f"<td>{h['fund']}{' (' + h.get('fund_code','') + ')' if h.get('fund_code') else ''}<br><span style='color:#8899aa;font-size:12px;font-family:'JetBrains Mono',monospace;'>"
+                        f"跟踪：{r['name']}{' (' + h.get('index_code','') + ')' if h.get('index_code') else ''}</span>{netval_html}{watch_html}</td>"
             f"<td>{val}</td>"
             f"<td><b style='color:{color}'>{sig}</b></td>"
             f"<td>{_cell_chg(r.get('change_pct'))}</td>"

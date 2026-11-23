@@ -61,11 +61,16 @@ section h2{font-size:20px;font-weight:700;margin:0 0 16px;padding-bottom:10px;bo
 .tempbar .meta b{color:var(--ink)}
 
 /* 持仓卡片 */
+.groupTitle{font-size:15px;font-weight:800;color:var(--accent);margin:16px 0 4px;padding-bottom:4px;border-bottom:1px dashed var(--border)}
+.watch{margin-top:6px;padding:6px 8px;border-radius:8px;background:#0e1a20;border:1px solid #1d3a44;font-size:11.5px}
+.watch .wt{color:#ffb74d;font-weight:700;margin-right:6px}
+.watch .wr{color:#d6e4f0}
 .cards{display:grid;grid-template-columns:repeat(auto-fit, minmax(260px, 1fr));gap:6px;margin-top:6px;width:100%}
 .card{background:var(--card);border:1px solid var(--border);border-top:3px solid var(--accent);border-radius:10px;padding:8px 10px;transition:box-shadow .2s;box-shadow:0 2px 8px rgba(0,212,170,.15)}
 .card:hover{box-shadow:0 2px 8px rgba(0,0,0,.2)}
-.card .fund{font-size:15px;font-weight:800;margin-bottom:8px}
-.card .idx{font-size:11px;color:var(--ink2);margin-bottom:6px}
+.card .fund{font-size:15px;font-weight:800;margin-bottom:8px;text-align:center}
+.card .idx{font-size:11px;color:var(--ink2);margin-bottom:6px;text-align:center}
+.card .fc{color:#8fa3b8;font-weight:600;font-size:0.85em}
 .card .kv{display:flex;justify-content:space-between;align-items:baseline;font-size:12px;padding:4px 0}
 .card .kv span{color:var(--ink2)}
 .card .kv em{font-style:normal;color:#8fa3b8;font-size:10.5px;margin-left:4px}
@@ -322,31 +327,53 @@ function renderCards(recs){
   if (typeof sparkRO !== "undefined" && sparkRO) sparkRO.disconnect();
   for(const k in sparks){ sparks[k].dispose&&sparks[k].dispose(); delete sparks[k]; }
   const pending=[];
-  for(const h of HOLDINGS){
-    const r=recs[h.code]; if(!r) continue;
-    const gold=isGold(h.code);
-    const [compPct,compBand]=compOf(r);
-    const sig=gold?{label:"仅价格参考",detail:"黄金无 PE/PB 估值，按价格分位自行判断",tone:"#8899aa"}
-                  :(SIGNAL[compBand]||SIGNAL.unknown);
-    const div=document.createElement("div"); div.className="card";
-    div.innerHTML=`
-      <div class="fund">${h.fund}</div>
-      <div class="idx">跟踪：${r.name}${gold?"（商品）":""}${r.frequency==="monthly"?"（月频）":""}</div>
-      ${gold?`
-        <div class="kv"><span>金价（元/克）</span><span class="v">${fmt(r.price)}</span></div>
-        <div class="kv"><span>价格历史分位</span><span class="v">${pctTxt(r.price_pct)}</span></div>`
-      :`
-        <div class="kv"><span>PE(TTM)</span><span class="v">${fmt(r.pe)}<em>分位 ${pctTxt(r.pe_pct)}</em></span></div>
-        <div class="kv"><span>PB</span><span class="v">${fmt(r.pb)}<em>分位 ${pctTxt(r.pb_pct)}</em></span></div>
-        <div class="kv"><span>股息率</span><span class="v">${r.dy==null?"—":fmt(r.dy)+"%"}<em>${r.dy_band==="unknown"?"样本不足":"分位 "+pctTxt(r.dy_pct)}</em></span></div>
-        <div class="kv"><span>综合分位</span><span class="v"><b style="color:${BAND[compBand].color}">${pctTxt(compPct)}</b><em>${BAND[compBand].cn}</em></span></div>`}
-      <div class="kv"><span>日涨跌</span><span class="v" style="color:${r.change_pct==null?"inherit":(r.change_pct>=0?UP:DOWN)}">${r.change_pct==null?"—":(r.change_pct>=0?"+":"")+r.change_pct.toFixed(2)+"%"}</span></div>
-      <div class="spark" id="sp_${r.code.replace(/[^a-zA-Z0-9]/g,"_")}"></div>
-      <div class="sig" style="border-left:4px solid ${sig.tone}">
-        <b style="color:${sig.tone}">${sig.label}</b><span class="d">${sig.detail}</span>
-      </div>`;
-    box.appendChild(div);
-    pending.push({div, code:r.code, tone:sig.tone});
+  // 按 group 分组渲染；固定顺序：场外在先，未命名组归"持仓"排最后
+  const byGroup={};
+  for(const h of HOLDINGS){ const g=h.group||"持仓"; (byGroup[g]=byGroup[g]||[]).push(h); }
+  const groups=Object.keys(byGroup).sort((a,b)=>{
+    const ia=["场外","场内","持仓"].indexOf(a), ib=["场外","场内","持仓"].indexOf(b);
+    if(ia>-1&&ib>-1) return ia-ib;
+    if(ia>-1) return -1; if(ib>-1) return 1;
+    return a.localeCompare(b);
+  });
+  for(const g of groups){
+    if(groups.length>1){
+      const hd=document.createElement("h3"); hd.className="groupTitle"; hd.textContent=g;
+      box.appendChild(hd);
+    }
+    const grid=document.createElement("div"); grid.className="cards"; box.appendChild(grid);
+    for(const h of byGroup[g]){
+      const r=recs[h.code]; if(!r) continue;
+      const gold=isGold(h.code);
+      const [compPct,compBand]=compOf(r);
+      const sig=gold?{label:"仅价格参考",detail:"黄金无 PE/PB 估值，按价格分位自行判断",tone:"#8899aa"}
+                    :(SIGNAL[compBand]||SIGNAL.unknown);
+      const watch=(h.watch&&h.watch.metric&&h.watch.rule)
+        ?`<div class="watch"><span class="wt">盯 ${h.watch.metric}</span><span class="wr">${h.watch.rule}</span></div>`:"";
+      const netval=(h.etf_price!=null&&h.etf_price!==undefined)
+        ?`<div class="kv"><span>净值(实时)</span><span class="v" style="color:#00d4aa;font-weight:700">${fmt(h.etf_price)}</span></div>`:"";
+      const div=document.createElement("div"); div.className="card";
+      div.innerHTML=`
+        <div class="fund">${h.fund}${h.fund_code?` <span class="fc">(${h.fund_code})</span>`:""}</div>
+        <div class="idx">跟踪：${r.name}${gold?"（商品）":""} <span class="fc">(${h.index_code||r.code})</span>${r.frequency==="monthly"?"（月频）":""}</div>
+        ${gold?`
+          <div class="kv"><span>金价（元/克）</span><span class="v">${fmt(r.price)}</span></div>
+          <div class="kv"><span>价格历史分位</span><span class="v">${pctTxt(r.price_pct)}</span></div>`
+        :`
+          <div class="kv"><span>PE(TTM)</span><span class="v">${fmt(r.pe)}<em>分位 ${pctTxt(r.pe_pct)}</em></span></div>
+          <div class="kv"><span>PB</span><span class="v">${fmt(r.pb)}<em>分位 ${pctTxt(r.pb_pct)}</em></span></div>
+          <div class="kv"><span>股息率</span><span class="v">${r.dy==null?"—":fmt(r.dy)+"%"}<em>${r.dy_band==="unknown"?"样本不足":"分位 "+pctTxt(r.dy_pct)}</em></span></div>
+          <div class="kv"><span>综合分位</span><span class="v"><b style="color:${BAND[compBand].color}">${pctTxt(compPct)}</b><em>${BAND[compBand].cn}</em></span></div>` }
+        ${netval}
+        <div class="kv"><span>日涨跌</span><span class="v" style="color:${r.change_pct==null?"inherit":(r.change_pct>=0?UP:DOWN)}">${r.change_pct==null?"—":(r.change_pct>=0?"+":"")+r.change_pct.toFixed(2)+"%"}</span></div>
+        ${watch}
+        <div class="spark" id="sp_${r.code.replace(/[^a-zA-Z0-9]/g,"_")}"></div>
+        <div class="sig" style="border-left:4px solid ${sig.tone}">
+          <b style="color:${sig.tone}">${sig.label}</b><span class="d">${sig.detail}</span>
+        </div>`;
+      grid.appendChild(div);
+      pending.push({div, code:r.code, tone:sig.tone});
+    }
   }
   /* 阶段2：所有卡片已就位，网格列数已定，再统一初始化 sparkline */
   for(const p of pending){
@@ -565,7 +592,10 @@ def render_dashboard(out_dir: Path, report_date: str, holdings: list, broad: lis
     page = (PAGE
             .replace("__REPORT_DATE__", report_date)
             .replace("__HOLDINGS__", json.dumps(
-                [{"fund": h["fund"], "code": h["code"]} for h in holdings],
+                [{"group": h.get("group"), "fund": h["fund"], "code": h["code"],
+                  "fund_code": h.get("fund_code"), "index_code": h.get("index_code"),
+                  "watch": h.get("watch"), "etf": h.get("etf"),
+                  "etf_price": h.get("etf_price")} for h in holdings],
                 ensure_ascii=False))
             .replace("__BROAD__", json.dumps(broad, ensure_ascii=False))
             .replace("__WINDOW_YEARS__", str(window_years)))

@@ -180,8 +180,9 @@ def fetch_eastmoney(secids: dict) -> dict:
 
 def eastmoney_symbol(index_code: str, market: str = "cross") -> str:
     """指数代码转东财 secid：SPX -> 100.SPX，HSTECH -> 124.HSTECH；
-    中证 H 系列（如 H30184.CSI）腾讯不收录，走东财 2.H30184"""
-    if market == "cn" and index_code.startswith("H") and index_code.endswith(".CSI"):
+    中证 H/9 系列（如 H30184.CSI、931643.CSI）腾讯不收录，走东财 2.xxx"""
+    if market == "cn" and index_code.endswith(".CSI") and (
+            index_code.startswith("H") or index_code.startswith("9")):
         return "2." + index_code.split(".")[0]
     table = {"SPX": "100.SPX", "HSTECH": "124.HSTECH", "NDX": "100.NDX",
              "HSI": "124.HSI"}

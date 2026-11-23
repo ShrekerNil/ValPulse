@@ -268,6 +268,14 @@ def _run() -> int:
             continue  # 黄金涨跌由价格序列计算
         sym = fetchers.tencent_symbol(item["code"], item["market"])
         tx_map[sym] = item["code"]
+    # 额外查持仓场内 ETF 的实时价（512 开头=沪市 ETF：sh512660），供盯盘提示显示净值
+    hcfg = cfg.get("holdings") or {}
+    if isinstance(hcfg, dict):
+        for items in hcfg.values():
+            for h in items:
+                etf = h.get("etf")
+                if etf:
+                    tx_map[("sh" if etf.startswith("5") else "sz") + etf] = etf
     tx = fetchers.fetch_tencent(tx_map)
     log.info("腾讯行情获取 %d 条", len(tx))
 
@@ -298,13 +306,20 @@ def _run() -> int:
 
     by_code = {r["code"]: r for r in records}
     holdings = holdings_of(cfg, by_code)
+    # 注入场内 ETF 实时价，供盯盘提示显示净值
+    for h in holdings:
+        etf = h.get("etf")
+        if etf:
+            sym = ("sh" if etf.startswith("5") else "sz") + etf
+            quote = tx.get(sym) or {}
+            h["etf_price"] = quote.get("price")
     port_temp = portfolio_temperature(holdings)
     mkt_temp = market_temperature(records, cfg.get("broad_indexes", []))
     render_dashboard(REPORT_DIR, report_date, holdings,
                      cfg.get("broad_indexes", []), window)
     log.info("看板已生成: %s", REPORT_DIR / "index.html")
 
-    title = f"ValPulse 估值周报 {report_date}"
+    title = f"ValPulse 估值日报 {report_date}"
     content = build_summary(records, holdings, port_temp, mkt_temp,
                             os.environ.get("REPORT_URL") or None)
     if failed:

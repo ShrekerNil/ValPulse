@@ -8,6 +8,7 @@
 """
 import json
 import logging
+import os
 import sqlite3
 from datetime import date
 from pathlib import Path
@@ -15,7 +16,10 @@ from pathlib import Path
 log = logging.getLogger("valpulse.db")
 
 DATA_DIR = Path(__file__).resolve().parent.parent / "data"
-DB_PATH = DATA_DIR / "valuation.db"
+# 测试环境用独立库（本地跑测试设 VALPULSE_ENV=test），避免污染正式数据；
+# 正式运行（缺省 / Actions）走 valuation.db，页面只显示正式数据
+DB_PATH = DATA_DIR / ("valuation_test.db" if os.environ.get("VALPULSE_ENV") == "test"
+                      else "valuation.db")
 SNAPSHOT_DIR = DATA_DIR / "snapshots"
 
 SCHEMA = """

@@ -38,6 +38,11 @@ indexes:
   - code: "000688.SH"
     name: "科创50"
     category: "宽基"
+  - code: "931643.CSI"
+    name: "科创创业50"
+    category: "宽基"
+    source: "csi"           # 2021年发布，乐咕未收录，走中证官网PE（约5.5年历史）
+    pb_source: "factsheet"  # 中证官方 factsheet 最新市净率/股息率（无免费历史）
   - code: "000932.SH"
     name: "中证主要消费"
     category: "行业"
@@ -57,6 +62,11 @@ indexes:
     category: "行业"
     source: "csi"           # 中证全指证券公司指数，乐咕未收录，走中证官网PE
     pb_source: "danjuan"    # 蛋卷周频PB历史，可算10年分位（口径与中证官方略有差异）
+  - code: "399967.SZ"
+    name: "中证军工"
+    category: "行业"
+    source: "csi"           # 中证军工指数，乐咕未收录，走中证官网PE（2016起回溯）
+    pb_source: "danjuan"    # 蛋卷周频PB历史（2016-11起），可算10年分位
   - code: "000992.SH"
     name: "全指金融"
     category: "行业"
@@ -86,14 +96,30 @@ cross_border:
     source: "legulegu_hsi"  # 月频 PE（乐咕恒生专题页，数据源恒生指数公司）
     pb_source: "danjuan"    # 蛋卷周频PB历史（2020-07 起）
 
-# 我的持仓（定投中）：看板"我的持仓"模块按此渲染
+# 我的持仓：按「场外（天天基金慧定投底仓）/ 场内（券商金字塔建仓）」分组
+# watch 字段仅场内需要：卡片上显示"盯什么数据 + 到什么值做什么"，小白可读
 holdings:
-  - fund: "易方达中证A500ETF联接A"
-    code: "000510.CSI"
-  - fund: "华宝券商ETF联接A"
-    code: "399975.SZ"
-  - fund: "易方达黄金ETF联接A"
-    code: "GOLD.AU9999"
+  场外:
+    - fund: "易方达中证科创创业50联接A"
+      fund_code: "013304"
+      code: "931643.CSI"
+    - fund: "华宝券商ETF联接A"
+      fund_code: "006098"
+      code: "399975.SZ"
+    - fund: "易方达中证A500ETF联接A"
+      fund_code: "022459"
+      code: "000510.CSI"
+    - fund: "易方达黄金ETF联接A"
+      fund_code: "000307"
+      code: "GOLD.AU9999"
+  场内:
+    - fund: "国泰中证军工ETF"
+      fund_code: "512660"
+      code: "399967.SZ"
+      etf: "512660"       # 场内交易标的，取实时价（腾讯 sh512660）
+      watch:
+        metric: "净值"
+        rule: "≤0.88买5000 · ≤0.82买7000 · ≤0.74买8000"
 
 # 大盘温度合成：宽基指数 PE 分位等权均值（0-100），五档温带
 broad_indexes:
