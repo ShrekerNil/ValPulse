@@ -248,6 +248,9 @@ def _run() -> int:
 
     today = date.today()
     report_date = today.isoformat()
+    # 数据来源标记：GitHub Actions 运行=正式(prod)，本地运行=测试(test)
+    source = "prod" if os.environ.get("GITHUB_ACTIONS") == "true" else "test"
+    log.info("数据来源标记：%s", source)
 
     log.info("开始抓取数据（历史快照导入 %d 期）", imported)
     raw, failed = fetch_all(cfg)
@@ -301,7 +304,7 @@ def _run() -> int:
     log.info("分位计算完成：%d 个标的，失败 %d 个", len(records), len(failed))
 
     save_series_to_db(conn, raw)
-    db.save_snapshot(conn, report_date, records)
+    db.save_snapshot(conn, report_date, records, source=source)
     db.export_web_data(conn, REPORT_DIR)
 
     by_code = {r["code"]: r for r in records}
@@ -315,8 +318,9 @@ def _run() -> int:
             h["etf_price"] = quote.get("price")
     port_temp = portfolio_temperature(holdings)
     mkt_temp = market_temperature(records, cfg.get("broad_indexes", []))
+    default_view = source  # 下拉框默认=运行环境：本地=test，远程=prod
     render_dashboard(REPORT_DIR, report_date, holdings,
-                     cfg.get("broad_indexes", []), window)
+                     cfg.get("broad_indexes", []), window, default_view)
     log.info("看板已生成: %s", REPORT_DIR / "index.html")
 
     title = f"ValPulse 估值日报 {report_date}"

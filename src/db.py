@@ -16,10 +16,8 @@ from pathlib import Path
 log = logging.getLogger("valpulse.db")
 
 DATA_DIR = Path(__file__).resolve().parent.parent / "data"
-# 测试环境用独立库（本地跑测试设 VALPULSE_ENV=test），避免污染正式数据；
-# 正式运行（缺省 / Actions）走 valuation.db，页面只显示正式数据
-DB_PATH = DATA_DIR / ("valuation_test.db" if os.environ.get("VALPULSE_ENV") == "test"
-                      else "valuation.db")
+# 单一库 + source 标记区分测试/正式：本地跑标 test，GitHub Actions 跑标 prod
+DB_PATH = DATA_DIR / "valuation.db"
 SNAPSHOT_DIR = DATA_DIR / "snapshots"
 
 SCHEMA = """
@@ -55,6 +53,7 @@ CREATE TABLE IF NOT EXISTS snapshots (
     price_pct REAL,
     price_band TEXT,
     change_pct REAL,
+    source    TEXT NOT NULL DEFAULT 'prod',   -- prod=正式(远程) / test=测试(本地)
     PRIMARY KEY (date, code)
 );
 CREATE INDEX IF NOT EXISTS idx_series_code ON series(code, metric, date);
@@ -77,7 +76,8 @@ def init_db(conn: sqlite3.Connection):
     cols = {row["name"] for row in conn.execute("PRAGMA table_info(snapshots)")}
     for col, typ in (("dy", "REAL"), ("dy_pct", "REAL"), ("dy_band", "TEXT"),
                      ("dy_samples", "INTEGER"), ("comp_pct", "REAL"),
-                     ("comp_band", "TEXT")):
+                     ("comp_band", "TEXT"),
+                     ("source", "TEXT NOT NULL DEFAULT 'prod'")):
         if col not in cols:
             conn.execute(f"ALTER TABLE snapshots ADD COLUMN {col} {typ}")
     conn.commit()
@@ -94,8 +94,9 @@ def save_series(conn: sqlite3.Connection, code: str, metric: str, rows: list):
     conn.commit()
 
 
-def save_snapshot(conn: sqlite3.Connection, report_date: str, records: list):
-    """写入一期汇总（分位与分级已由调用方算好）"""
+def save_snapshot(conn: sqlite3.Connection, report_date: str, records: list,
+                  source: str = "prod"):
+    """写入一期汇总（分位与分级已由调用方算好）。source: prod=正式 / test=测试"""
     rows = []
     for r in records:
         rows.append((
@@ -109,14 +110,14 @@ def save_snapshot(conn: sqlite3.Connection, report_date: str, records: list):
             r.get("dy_samples"),
             r.get("comp_percentile"), r.get("comp_band"),
             r.get("price"), r.get("price_percentile"), r.get("price_band"),
-            r.get("change_pct"),
+            r.get("change_pct"), source,
         ))
     conn.executemany(
         "INSERT INTO snapshots(date,code,name,market,category,frequency,"
         "pe,pe_pct,pe_band,pe_samples,pb,pb_pct,pb_band,pb_samples,"
         "dy,dy_pct,dy_band,dy_samples,comp_pct,comp_band,"
-        "price,price_pct,price_band,change_pct) "
-        "VALUES(" + ",".join(["?"] * 24) + ") "
+        "price,price_pct,price_band,change_pct,source) "
+        "VALUES(" + ",".join(["?"] * 25) + ") "
         "ON CONFLICT(date, code) DO UPDATE SET "
         "name=excluded.name, pe=excluded.pe, pe_pct=excluded.pe_pct, "
         "pe_band=excluded.pe_band, pe_samples=excluded.pe_samples, "
@@ -126,7 +127,7 @@ def save_snapshot(conn: sqlite3.Connection, report_date: str, records: list):
         "comp_pct=excluded.comp_pct, comp_band=excluded.comp_band, "
         "price=excluded.price, "
         "price_pct=excluded.price_pct, price_band=excluded.price_band, "
-        "change_pct=excluded.change_pct", rows)
+        "change_pct=excluded.change_pct, source=excluded.source", rows)
     conn.commit()
 
 

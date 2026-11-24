@@ -41,8 +41,8 @@ select{padding:4px 8px;border:1px solid var(--line);border-radius:6px;background
 .modules{display:flex;align-items:flex-start;gap:24px;margin-top:10px;width:100%}
 section{background:var(--card);border:1px solid var(--border);border-radius:16px;
   padding:18px;flex:1 1 auto;min-width:300px;box-sizing:border-box}
-section#secHoldings{flex:0 0 30%;min-width:300px;box-sizing:border-box;padding:14px;box-shadow:0 0 20px rgba(0,212,170,.1)}
-section#secMarket{flex:1 1 auto;min-width:500px;box-sizing:border-box;padding:14px;box-shadow:0 0 20px rgba(0,212,170,.1)}
+section#secHoldings{flex:0 0 40%;min-width:300px;box-sizing:border-box;padding:14px;box-shadow:0 0 20px rgba(0,212,170,.1)}
+section#secMap{flex:1 1 auto;min-width:500px;box-sizing:border-box;padding:14px;box-shadow:0 0 20px rgba(0,212,170,.1)}
 section h2{font-size:20px;font-weight:700;margin:0 0 16px;padding-bottom:10px;border-bottom:3px solid var(--accent);text-align:center;letter-spacing:4px}
 
 /* 底部：提示性信息区 + 免责声明，归位页脚 */
@@ -61,11 +61,11 @@ section h2{font-size:20px;font-weight:700;margin:0 0 16px;padding-bottom:10px;bo
 .tempbar .meta b{color:var(--ink)}
 
 /* 持仓卡片 */
-.groupTitle{font-size:15px;font-weight:800;color:var(--accent);margin:16px 0 4px;padding-bottom:4px;border-bottom:1px dashed var(--border)}
+.groupTitle{font-size:15px;font-weight:800;color:var(--accent);margin:16px 0 4px;padding-bottom:4px;border-bottom:1px dashed var(--border);grid-column:1/-1}
 .watch{margin-top:6px;padding:6px 8px;border-radius:8px;background:#0e1a20;border:1px solid #1d3a44;font-size:11.5px}
 .watch .wt{color:#ffb74d;font-weight:700;margin-right:6px}
 .watch .wr{color:#d6e4f0}
-.cards{display:grid;grid-template-columns:repeat(auto-fit, minmax(260px, 1fr));gap:6px;margin-top:6px;width:100%}
+.cards{display:grid;grid-template-columns:repeat(auto-fit, minmax(250px, 1fr));gap:6px;margin-top:6px;width:100%}
 .card{background:var(--card);border:1px solid var(--border);border-top:3px solid var(--accent);border-radius:10px;padding:8px 10px;transition:box-shadow .2s;box-shadow:0 2px 8px rgba(0,212,170,.15)}
 .card:hover{box-shadow:0 2px 8px rgba(0,0,0,.2)}
 .card .fund{font-size:15px;font-weight:800;margin-bottom:8px;text-align:center}
@@ -111,6 +111,15 @@ td.null{color:var(--muted)}
 .toolbar .grp button{border:0;background:var(--card);padding:6px 14px;font-size:12px;cursor:pointer}
 .toolbar .grp button.on{background:var(--accent);color:#fff}
 #mainChart{height:460px;margin:10px 0 8px;padding:14px;border-radius:14px;border:2px solid rgba(0,212,170,.3);box-shadow:0 0 30px rgba(0,212,170,.1),inset 0 0 20px rgba(0,212,170,.05);background:rgba(255,255,255,.02)}
+#pepbMap{height:720px;margin:10px 0 8px;padding:14px;border-radius:14px;border:2px solid rgba(0,212,170,.3);box-shadow:0 0 30px rgba(0,212,170,.1),inset 0 0 20px rgba(0,212,170,.02);background:rgba(255,255,255,.02)}
+#pepbGroups{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:10px}
+.pg{background:var(--card-hover);border:1px solid var(--border);border-radius:10px;padding:10px 12px}
+.pgh{font-weight:800;font-size:13px;margin-bottom:6px;text-align:center;padding:4px;border-radius:6px}
+.pgh.ug{background:rgba(46,125,50,.18);color:#2e7d32}
+.pgh.mid{background:rgba(21,101,192,.15);color:#1565c0}
+.pgh.ov{background:rgba(198,40,40,.18);color:#c62828}
+.pgi{display:inline-block;margin:2px 4px 2px 0;padding:2px 8px;border-radius:12px;background:rgba(255,255,255,.04);font-size:11px;color:#cfe8f8}
+.pgi.peonly{color:#8b9aab;border:1px dashed #5a6b7a;background:rgba(139,154,171,.06)}
 .legend{display:flex;flex-wrap:wrap;gap:6px;font-size:10px;color:#8899aa;margin-top:4px;letter-spacing:0.5px;opacity:0.9}
 
 footer{font-size:12px;color:#8aaacc;font-family:"JetBrains Mono",monospace;border-top:1px solid var(--border);padding:12px 0;text-align:center}
@@ -120,14 +129,14 @@ footer p{margin:4px 0}
 @media (max-width:1000px){
   .wrap{padding:12px 16px 40px}
   .modules{flex-direction:column;align-items:stretch;gap:16px}
-  section#secHoldings,section#secMarket{flex:1 1 100%;min-width:auto}
+  section#secHoldings,section#secMap{flex:1 1 100%;min-width:auto}
   .bottom{margin-top:16px}
 }
 @media (max-width:600px){
   .wrap{padding:12px 12px 40px}
   section h2{font-size:16px}
   .tempbar .t{font-size:28px}
-  #mainChart{height:280px}
+  #pepbMap{height:420px;padding:10px}
   th,td{white-space:normal;padding:5px 6px;font-size:11px}
 }
 </style>
@@ -137,6 +146,12 @@ footer p{margin:4px 0}
 <header>
   <h1>ValPulse 估值看板</h1>
   <div class="dateRow">
+    <span class="sub">范围</span>
+    <select id="sourceSel">
+      <option value="all">全部</option>
+      <option value="prod">正式</option>
+      <option value="test">测试</option>
+    </select>
     <span class="sub">数据日期</span>
     <select id="dateSel"></select>
     <span class="sub" id="dateMeta"></span>
@@ -150,31 +165,11 @@ footer p{margin:4px 0}
   <div class="cards" id="holdingCards"></div>
 </section>
 
-<section id="secMarket">
-  <h2>大盘</h2>
-  <div class="tempbar" id="marketBar"></div>
-  <div class="legend" id="bandLegend"></div>
-  <div class="focus" id="focusList"></div>
-  <div class="toolbar">
-    <span class="sub">指数</span>
-    <select id="idxSel"></select>
-    <div class="grp" id="metricGrp">
-      <button data-m="pe" class="on">PE</button>
-      <button data-m="pb">PB</button>
-      <button data-m="price">价格</button>
-    </div>
-  </div>
-  <div class="tableWrap">
-  <table id="valTable">
-    <thead><tr>
-      <th>指数</th><th>收盘</th><th>PE</th><th>PE分位</th><th>PB</th><th>PB分位</th>
-      <th>股息率</th><th>综合</th><th>日涨跌</th>
-    </tr></thead>
-    <tbody></tbody>
-  </table>
-  </div>
-  <div id="mainChart"></div>
-  <div class="legend" id="chartHint"></div>
+<section id="secMap">
+  <h2>主流指数估值地图</h2>
+  <div class="legend" id="mapHint"></div>
+  <div id="pepbMap"></div>
+  <div id="pepbGroups"></div>
 </section>
 </div>
 
@@ -216,16 +211,17 @@ const TEMP_BANDS = [
 ];
 const UP="#c62828", DOWN="#2e7d32";
 
-let SERIES={}, SNAPS={}, DATES=[], curDate="", curCode="", curMetric="pe";
+let SERIES={}, SNAPS={}, DATES=[], DATE_SRC={}, curDates=[], curDate="", curCode="", curMetric="pe";
+const DEFAULT_VIEW = __DEFAULT_VIEW__;   /* 数据范围默认值：本地=all，远程=prod */
 const sparks={};
 const sparkRO=("ResizeObserver" in window)?new ResizeObserver(es=>{
   for(const e of es){const el=e.target,ch=el.__ech;
     if(ch&&el.clientWidth>0&&el.clientHeight>0)ch.resize();}
 }):null;
-const mainEl=document.getElementById("mainChart");
-const mainChart=echarts.init(mainEl);
-mainEl.__ech=mainChart;
-if(sparkRO) sparkRO.observe(mainEl);
+const mapEl=document.getElementById("pepbMap");
+const pepbMap=echarts.init(mapEl);
+mapEl.__ech=pepbMap;
+if(sparkRO) sparkRO.observe(mapEl);
 
 /* ===== 工具 ===== */
 const $=s=>document.querySelector(s);
@@ -341,7 +337,6 @@ function renderCards(recs){
       const hd=document.createElement("h3"); hd.className="groupTitle"; hd.textContent=g;
       box.appendChild(hd);
     }
-    const grid=document.createElement("div"); grid.className="cards"; box.appendChild(grid);
     for(const h of byGroup[g]){
       const r=recs[h.code]; if(!r) continue;
       const gold=isGold(h.code);
@@ -371,7 +366,7 @@ function renderCards(recs){
         <div class="sig" style="border-left:4px solid ${sig.tone}">
           <b style="color:${sig.tone}">${sig.label}</b><span class="d">${sig.detail}</span>
         </div>`;
-      grid.appendChild(div);
+      box.appendChild(div);
       pending.push({div, code:r.code, tone:sig.tone});
     }
   }
@@ -476,6 +471,121 @@ function selectIndex(code){
     tr.classList.toggle("sel",tr.dataset.code===code));
   renderMain();
 }
+function renderMap(recs){
+  const pts=[], peOnly=[];
+  for(const c in recs){
+    const r=recs[c];
+    if(r.pe_pct==null) continue;
+    if(r.pb_pct==null) peOnly.push(r);
+    else pts.push(r);
+  }
+  const bandCol=b=>(BAND[b]||BAND.unknown).color;
+  const shortName=n=>(n||"").replace(/^中证全指/,"").replace(/指数$/,"");
+  const pos={};
+  // 1. 默认：标签在圆点正上方、水平居中
+  for(const r of pts){
+    pos[r.code||r.name] = {position:"top", align:"center", offset:[0,0]};
+  }
+  // 2. 贴边对齐：仅 PE<4 左对齐、PE>97 右对齐，文字边缘对齐圆点边缘(±7px半径)
+  for(const r of pts){
+    const k=r.code||r.name;
+    if(r.pe_pct<4) pos[k]={position:"top", align:"left", offset:[-7,0]};
+    else if(r.pe_pct>97) pos[k]={position:"top", align:"right", offset:[7,0]};
+  }
+  // 3. 上下错开：按文字实际宽度估算 PE 方向占位，PB 接近且 PE 会叠的相邻点，标签 top/bottom 交替（中间点也生效）
+  const chartW=pepbMap.getWidth()||600;
+  function labelW(r){
+    const n=shortName(r.name); let w=0;
+    for(const ch of n) w += /[一-龥]/.test(ch)?11:6;
+    return w/chartW*100;
+  }
+  const sorted=[...pts].sort((a,b)=>(a.pb_pct-b.pb_pct)||(a.pe_pct-b.pe_pct));
+  let si=0;
+  while(si<sorted.length){
+    let ej=si;
+    while(ej+1<sorted.length &&
+          Math.abs(sorted[ej+1].pb_pct-sorted[ej].pb_pct)<3 &&
+          Math.abs(sorted[ej+1].pe_pct-sorted[ej].pe_pct)<(labelW(sorted[ej+1])+labelW(sorted[ej]))/2){
+      ej++;
+    }
+    if(ej>si){
+      for(let m=si;m<=ej;m++){
+        const k=sorted[m].code||sorted[m].name;
+        const isUp=(m-si)%2===0;
+        pos[k]=Object.assign({}, pos[k], {position: isUp?"top":"bottom"});
+      }
+    }
+    si=ej+1;
+  }
+  const data=pts.map(r=>({name:r.name, value:[r.pe_pct, r.pb_pct], pe:r.pe, pb:r.pb,
+    itemStyle:{color:bandCol(r.comp_band||r.pe_band||"unknown"),borderColor:"#cfe8f8",borderWidth:1,opacity:.92},
+    label:pos[r.code||r.name]||{position:"top",offset:[0,0]}}));
+  // PE 单值（PB 缺失）底部横带：按 PE 排序，重叠的分多行错开（每行往下 5 个分位单位）
+  const peChartW=pepbMap.getWidth()||600;
+  const peW=r=>{ const n=shortName(r.name); let w=0;
+    for(const ch of n) w += /[\u4e00-\u9fa5]/.test(ch)?11:6;
+    return w/peChartW*100; };
+  const peSorted=[...peOnly].sort((a,b)=>a.pe_pct-b.pe_pct);
+  const peY={}; const rows=[];  // rows[i]={pe,halfW} 每行当前最后一个点
+  for(const r of peSorted){
+    const hw=peW(r)/2;
+    let rr=-1;
+    for(let i=0;i<rows.length;i++){
+      if(r.pe_pct-rows[i].pe > rows[i].halfW+hw){ rr=i; break; }
+    }
+    if(rr<0){ rr=rows.length; rows.push({pe:r.pe_pct, halfW:hw}); }
+    else { rows[rr]={pe:r.pe_pct, halfW:hw}; }
+    peY[r.code||r.name]=-4-rr*5;
+  }
+  const maxRow=rows.length;
+  const peData=peOnly.map(r=>({name:r.name, value:[r.pe_pct, peY[r.code||r.name] ?? -4], pe:r.pe,
+    itemStyle:{color:"rgba(139,154,171,.14)", borderColor:"#8b9aab", borderWidth:1}}));
+  pepbMap.setOption({
+    title:{text:`PE/PB 分位散点 · ${pts.length} 个标的（${peOnly.length} 个仅PE参考）`,left:"center",top:0,
+      textStyle:{fontSize:14,fontWeight:700,color:"#e8f8ff"}},
+    grid:{left:50,right:24,top:42,bottom:6},
+    tooltip:{trigger:"item",formatter:p=>{
+      const only=p.value[1]<0;
+      const pbTxt=only?"待补":(p.value[1].toFixed(1)+"%（PB "+Number(p.data.pb).toFixed(2)+"）");
+      return `<b>${p.name}</b><br/>PE 分位 <b>${p.value[0].toFixed(1)}%</b>（PE ${p.data.pe==null?"—":Number(p.data.pe).toFixed(2)}）<br/>PB 分位 <b>${pbTxt}</b>`;
+    }},
+    xAxis:{type:"value",min:0,max:100,name:"PE 分位 %",nameLocation:"middle",nameGap:30,
+      nameTextStyle:{color:"#9fb3c8"},axisLabel:{color:"#9fb3c8"},
+      splitLine:{lineStyle:{color:"rgba(255,255,255,.08)"}}},
+    yAxis:{type:"value",min:-4-maxRow*5-2,max:100,name:"PB 分位 %",nameTextStyle:{color:"#9fb3c8"},
+      axisLabel:{color:"#9fb3c8"},splitLine:{lineStyle:{color:"rgba(255,255,255,.08)"}}},
+    series:[
+      {type:"scatter",symbolSize:14,data,
+        label:{show:true,formatter:d=>shortName(d.name),position:"top",distance:4,fontSize:10,color:"#cfe8f8"},
+        markLine:{silent:true,symbol:"none",
+          lineStyle:{type:"dashed",color:"rgba(255,255,255,.4)",width:1},
+          data:[
+            [{xAxis:0,yAxis:50, label:{show:true,position:"start",formatter:"PE+PB=50 低估线",color:"#9fb3c8",fontSize:10}}, {xAxis:50,yAxis:0}],
+            [{xAxis:50,yAxis:100, label:{show:true,position:"start",formatter:"PE+PB=150 高估线",color:"#9fb3c8",fontSize:10}}, {xAxis:100,yAxis:50}]
+          ]}},
+      {type:"scatter",symbolSize:11,data:peData,
+        label:{show:true,formatter:d=>shortName(d.name)+"·PE",position:"top",distance:2,fontSize:9,color:"#8b9aab"}}
+    ]
+  },true);
+  $("#mapHint").textContent="横轴=PE分位，纵轴=PB分位；左下斜线外侧=低估（PE+PB<50）、两线之间=合理、右上斜线外侧=高估（>150）；底部灰点为仅有PE（PB待补）的标的。";
+  const groups={低估:[],合理:[],高估:[]};
+  for(const r of pts){
+    const s=r.pe_pct + r.pb_pct;
+    const g=s<50?"低估":(s<=150?"合理":"高估");
+    groups[g].push({name:shortName(r.name), s, peOnly:false});
+  }
+  for(const r of peOnly){
+    const g=r.pe_pct<25?"低估":(r.pe_pct<=75?"合理":"高估");
+    groups[g].push({name:shortName(r.name), s:r.pe_pct, peOnly:true});
+  }
+  for(const g in groups) groups[g].sort((a,b)=>a.s-b.s);
+  $("#pepbGroups").innerHTML=["低估","合理","高估"].map(g=>{
+    const cls=g==="低估"?"ug":(g==="合理"?"mid":"ov");
+    const items=groups[g].map(x=>`<span class="pgi${x.peOnly?" peonly":""}" title="${x.peOnly?"PB待补 · ":""}PE+PB=${x.s.toFixed(1)}">${x.name}${x.peOnly?"·PE":""}</span>`).join("");
+    return `<div class="pg"><div class="pgh ${cls}">${g}（${groups[g].length}）</div>${items}</div>`;
+  }).join("");
+}
+
 function renderMain(){
   const metric=curMetric;
   const pts=normPts((SERIES[curCode]||{})[metric]);
@@ -533,10 +643,9 @@ function renderMain(){
 function switchDate(d){
   curDate=d;
   const recs=snapsOf(d);
-  $("#dateMeta").textContent=`共 ${DATES.length} 期 · 当前第 ${DATES.indexOf(d)+1} 期`;
-  renderPortfolioBar(recs); renderMarketBar(recs); renderFocus(recs);
-  renderCards(recs); renderTable(recs);
-  renderMain();
+  $("#dateMeta").textContent=`共 ${curDates.length} 期 · 当前第 ${curDates.indexOf(d)+1} 期`;
+  renderPortfolioBar(recs); renderCards(recs);
+  renderMap(recs);
 }
 
 /* ===== 启动 ===== */
@@ -548,32 +657,28 @@ Promise.all([
   for(const row of snaps){
     (SNAPS[row.date]=SNAPS[row.date]||{})[row.code]=row;
     if(DATES.indexOf(row.date)<0) DATES.push(row.date);
+    DATE_SRC[row.date]=row.source||"prod";
   }
   DATES.sort();
-  const sel=$("#dateSel");
-  sel.innerHTML=DATES.map(d=>`<option>${d}</option>`).join("");
-  curDate=DATES[DATES.length-1];
-  sel.value=curDate;
+  const sel=$("#dateSel"), srcSel=$("#sourceSel");
+  let curView=DEFAULT_VIEW;
+  srcSel.value=curView;
+  function refreshDates(){
+    curDates=(curView==="all")?DATES:DATES.filter(d=>(DATE_SRC[d]||"prod")===curView);
+    if(!curDates.length){ sel.innerHTML="<option>暂无数据</option>"; return; }
+    sel.innerHTML=curDates.map(d=>`<option>${d}</option>`).join("");
+    curDate=curDates[curDates.length-1];
+    sel.value=curDate;
+  }
   sel.addEventListener("change",()=>switchDate(sel.value));
+  srcSel.addEventListener("change",()=>{curView=srcSel.value; refreshDates(); switchDate(curDate);});
+  refreshDates();
 
   const codes=Object.keys(SNAPS[curDate]||{});
-  $("#idxSel").innerHTML=codes.map(c=>{
-    const n=SNAPS[curDate][c].name;
-    return `<option value="${c}">${n}</option>`;
-  }).join("");
-  const prefer=["000300.SH","000510.CSI","399975.SZ"];
-  curCode=codes.find(c=>prefer.indexOf(c)>=0)||codes[0];
-  $("#idxSel").value=curCode;
-  $("#idxSel").addEventListener("change",()=>selectIndex($("#idxSel").value));
-
-  document.querySelectorAll("#metricGrp button").forEach(b=>
-    b.addEventListener("click",()=>{
-      document.querySelectorAll("#metricGrp button").forEach(x=>x.classList.remove("on"));
-      b.classList.add("on"); curMetric=b.dataset.m; renderMain();
-    }));
 
   switchDate(curDate);
-  window.addEventListener("resize",()=>{mainChart.resize();
+
+  window.addEventListener("resize",()=>{pepbMap.resize();
     for(const k in sparks) sparks[k].resize();});
 }).catch(e=>{
   document.body.insertAdjacentHTML("beforeend",
@@ -586,7 +691,7 @@ Promise.all([
 
 
 def render_dashboard(out_dir: Path, report_date: str, holdings: list, broad: list,
-                     window_years: int = 10):
+                     window_years: int = 10, default_view: str = "all"):
     """渲染单页看板到 out_dir/index.html（数据文件由 export_web_data 先行导出）"""
     out_dir.mkdir(parents=True, exist_ok=True)
     page = (PAGE
@@ -598,7 +703,8 @@ def render_dashboard(out_dir: Path, report_date: str, holdings: list, broad: lis
                   "etf_price": h.get("etf_price")} for h in holdings],
                 ensure_ascii=False))
             .replace("__BROAD__", json.dumps(broad, ensure_ascii=False))
-            .replace("__WINDOW_YEARS__", str(window_years)))
+            .replace("__WINDOW_YEARS__", str(window_years))
+            .replace("__DEFAULT_VIEW__", json.dumps(default_view)))
     path = out_dir / "index.html"
     path.write_text(page, encoding="utf-8")
     log.info("看板已生成: %s", path)
