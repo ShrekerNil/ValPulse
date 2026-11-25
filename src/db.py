@@ -60,7 +60,7 @@ CREATE INDEX IF NOT EXISTS idx_series_code ON series(code, metric, date);
 CREATE INDEX IF NOT EXISTS idx_snap_date ON snapshots(date);
 """
 
-METRICS = ("pe", "pb", "price", "dy")
+METRICS = ("pe", "pb", "price")
 
 
 def connect() -> sqlite3.Connection:

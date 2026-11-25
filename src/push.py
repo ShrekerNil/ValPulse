@@ -121,8 +121,8 @@ def build_summary(records: list, holdings: list, port_temp: dict,
             rows.append(
                 f'<tr style="background:{stripe}">'
                 f"<td>{r['name']}</td>"
-                f'<td colspan="6">金价 {_fmt(r.get("price"))} 元/克 · '
-                f'价格分位 {_pct(r.get("price_percentile"))}（黄金无 PE/PB/股息率）</td>'
+                f'<td colspan="5">金价 {_fmt(r.get("price"))} 元/克 · '
+                f'价格分位 {_pct(r.get("price_percentile"))}（黄金无 PE/PB）</td>'
                 f"<td>{_cell_chg(r.get('change_pct'))}</td>"
                 "</tr>"
             )
@@ -132,12 +132,6 @@ def build_summary(records: list, holdings: list, port_temp: dict,
         pb_color = "#757575" if pb_none else BAND_COLORS.get(r.get("pb_band"), "#757575")
         comp_band = r.get("comp_band") or r.get("pe_band")
         comp_color = BAND_COLORS.get(comp_band, "#757575")
-        dy = r.get("dy_value")
-        dy_sub = ("样本不足" if r.get("dy_band") == "unknown"
-                  else _pct(r.get("dy_percentile")))
-        dy_txt = (f'<span style="color:#d6e4f0;font-weight:600">{_fmt(dy)}%</span>'
-                  f'<br><span style="color:#7f93a8;font-size:10px">'
-                  f'{dy_sub}</span>') if dy is not None else "-"
         rows.append(
             f'<tr style="background:{stripe}">'
             f"<td>{r['name']}</td>"
@@ -145,7 +139,6 @@ def build_summary(records: list, holdings: list, port_temp: dict,
             f"<td><span style='color:{pe_color}'>{_pct(r.get('pe_percentile'))}</span></td>"
             f"<td><span style='color:{pb_color};font-weight:600'>{'-' if pb_none else _fmt(r.get('pb_value'))}</span></td>"
             f"<td><span style='color:{pb_color}'>{'-' if pb_none else _pct(r.get('pb_percentile'))}</span></td>"
-            f"<td>{dy_txt}</td>"
             f"<td><span style='color:{comp_color};font-weight:700'>{_pct(r.get('comp_percentile'))}</span>"
             f"<br><span style='color:{comp_color};font-size:10px'>{r.get('comp_band_cn', '')}</span></td>"
             f"<td>{_cell_chg(r.get('change_pct'))}</td>"
@@ -172,7 +165,7 @@ def build_summary(records: list, holdings: list, port_temp: dict,
     table_head = (
         '<tr style="background:#0d1115;color:#e8f8ff;font-weight:700;">'
         '<th>指数</th><th>PE</th><th>PE分位</th>'
-        '<th>PB</th><th>PB分位</th><th>股息率</th><th>综合</th><th>日涨跌</th></tr>')
+        '<th>PB</th><th>PB分位</th><th>综合</th><th>日涨跌</th></tr>')
     return (
         '<html><body style="font-family:"JetBrains Mono","Noto Sans CJK SC",sans-serif;font-size:14px;color:#e6f0fa;background:#060b14;line-height:1.6;padding:24px;background-image:linear-gradient(rgba(255,255,255,.02) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.02) 1px,transparent 1px);background-size:40px 40px;">'
         '<h3 style="font-size:20px;font-weight:700;color:#00d4aa;text-align:center;letter-spacing:4px;border-bottom:2px solid #1a2f3d;padding-bottom:8px;margin:20px 0 10px;">我的持仓</h3>'
@@ -192,7 +185,7 @@ def build_summary(records: list, holdings: list, port_temp: dict,
         + f"<p>{'<br>'.join(notes)}</p>"
         + link
         + '<p style="color:#7ab0cc;font-size:12px;font-family:"JetBrains Mono",monospace;">分位基于近10年历史；'
-          "综合分位为 PE/PB 分位等权；股息率分位越高越便宜；"
+          "综合分位为 PE/PB 分位等权；"
           "「无PB数据」为数据源不提供该指标，非系统缺数；"
           "定投信号为规则化提示，不构成投资建议</p>"
         '</body></html>'

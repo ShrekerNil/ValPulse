@@ -145,11 +145,6 @@ gold:
 
 # 跨境指数
 cross_border:
-  - code: "SPX"
-    name: "标普500"
-    category: "宽基"
-    source: "multpl"        # 月频 PE（multpl.com）
-    pb_source: "multpl"     # 季频 PB（multpl.com，1999-12 起）
   - code: "HSTECH"
     name: "恒生科技"
     category: "宽基"

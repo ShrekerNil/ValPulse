@@ -62,7 +62,7 @@ def fetch_all(cfg: dict) -> tuple:
     for item in all_indexes(cfg):
         code, market = item["code"], item["market"]
         source = item.get("source")
-        entry = {"meta": item, "pe": None, "pb": None, "dy": None}
+        entry = {"meta": item, "pe": None, "pb": None}
         try:
             if market == "gold":
                 # 黄金无 PE/PB，只抓价格序列
@@ -102,16 +102,8 @@ def fetch_all(cfg: dict) -> tuple:
                     fs = fetchers.fetch_csi_factsheet_metrics(code)
                     if fs.get("pb") and fs.get("date"):
                         entry["pb"] = [{"date": fs["date"], "pb": fs["pb"]}]
-                    if fs.get("dy") and fs.get("date"):
-                        entry["dy"] = [{"date": fs["date"], "dy": fs["dy"]}]
                 if entry["pb"]:
                     log.info("%s PB 走 %s（%d 行）", code, pb_source, len(entry["pb"]))
-            # 股息率：标普走 multpl 月频历史，A股/港股优先蛋卷最新值并回退 factsheet
-            if market != "gold" and not entry.get("dy"):
-                entry["dy"] = fetchers.fetch_dividend_yield(code)
-                if entry["dy"]:
-                    log.info("%s 股息率 %.2f%%（%s）", code,
-                             entry["dy"][-1]["dy"], entry["dy"][-1]["date"])
         except Exception as e:  # 单个标的失败不影响整体
             log.exception("%s 抓取异常: %s", code, e)
         if not entry["pe"] and not entry["pb"] and not entry.get("price_series"):
@@ -157,8 +149,6 @@ def compute_records(cfg: dict, raw: dict, tx: dict) -> list:
                 "pe_samples": 0,
                 "pb_value": None, "pb_percentile": None, "pb_band": "unknown",
                 "pb_samples": 0,
-                "dy_value": None, "dy_percentile": None, "dy_band": "unknown",
-                "dy_samples": 0,
                 "comp_percentile": None, "comp_band": "unknown",
             })
             # 日涨跌取序列尾部两日收盘价
@@ -178,17 +168,12 @@ def compute_records(cfg: dict, raw: dict, tx: dict) -> list:
             log.warning("%s PE 窗口样本仅 %d 个，标注数据不足",
                         code, pe_eval["sample_count"])
             pe_eval["band"] = "unknown"
+            pe_eval["percentile"] = None
         if pb_eval["sample_count"] < min_samples:
             log.warning("%s PB 窗口样本仅 %d 个，标注数据不足",
                         code, pb_eval["sample_count"])
             pb_eval["band"] = "unknown"
-        dy_eval = pct_mod.evaluate(entry.get("dy"), "dy", window, bands)
-        if dy_eval["sample_count"] < min_samples:
-            dy_eval["band"] = "unknown"
-            dy_band = "unknown"
-        else:
-            # 股息率反向：分位越高代表股息率越高、估值越便宜
-            dy_band = pct_mod.band_of(100 - dy_eval["percentile"], bands)
+            pb_eval["percentile"] = None
         comp_pct, comp_band = _composite_eval(pe_eval, pb_eval, bands)
         tx_sym = fetchers.tencent_symbol(code, meta["market"])
         quote = tx.get(tx_sym, {})
@@ -201,10 +186,6 @@ def compute_records(cfg: dict, raw: dict, tx: dict) -> list:
             "pb_percentile": pb_eval["percentile"], "pb_band": pb_eval["band"],
             "pb_band_cn": BAND_LABELS[pb_eval["band"]],
             "pb_samples": pb_eval["sample_count"],
-            "dy_value": dy_eval["value"], "dy_date": dy_eval["value_date"],
-            "dy_percentile": dy_eval["percentile"], "dy_band": dy_band,
-            "dy_band_cn": BAND_LABELS[dy_band],
-            "dy_samples": dy_eval["sample_count"],
             "comp_percentile": comp_pct, "comp_band": comp_band,
             "comp_band_cn": BAND_LABELS[comp_band],
             "price": quote.get("price"),
@@ -233,10 +214,6 @@ def save_series_to_db(conn, raw: dict):
                            [{"date": r["date"], "value": r["price"]}
                             for r in entry["price_series"]
                             if r.get("price") is not None])
-        if entry.get("dy"):
-            db.save_series(conn, code, "dy",
-                           [{"date": r["date"], "value": r["dy"]} for r in entry["dy"]
-                            if isinstance(r.get("dy"), (int, float)) and r["dy"] > 0])
 
 
 def _run() -> int:
@@ -255,15 +232,6 @@ def _run() -> int:
     log.info("开始抓取数据（历史快照导入 %d 期）", imported)
     raw, failed = fetch_all(cfg)
 
-    # 股息率历史需按周累积：把库里已有的 dy 序列并入本期抓取结果
-    hist = db.load_series_all(conn)
-    for code, entry in raw.items():
-        if entry["meta"]["market"] == "gold":
-            continue
-        merged = {d: v for d, v in hist.get(code, {}).get("dy", [])}
-        for r in entry.get("dy") or []:
-            merged[r["date"]] = r["dy"]
-        entry["dy"] = [{"date": d, "dy": v} for d, v in sorted(merged.items())]
 
     tx_map = {}
     for item in all_indexes(cfg):
