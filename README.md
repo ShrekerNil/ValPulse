@@ -185,11 +185,37 @@ git commit -m "描述你的改动"
 git push origin main
 ```
 
-3. **推送不会自动触发流水线**，两种方式看到新版本的效果：
+3. **推送不会自动触发流水线**，三种方式看到新版本的效果：
    - 等今天 20:00 自动运行
-   - 立即验证：仓库 → Actions → 左侧「daily-valuation」→ **Run workflow**（约 20 分钟出结果）
+   - 立即验证（网页）：仓库 → Actions → 左侧「daily-valuation」→ **Run workflow**
+   - 立即验证（本地命令行）：用 GitHub CLI 触发（见下方「本地 gh CLI 触发流水线」）
 
 4. 运行成功的标志：收到当天邮件，且 Pages 看板内容已更新。
+
+### 本地 gh CLI 触发流水线
+
+命令行触发比网页快，标准工具是 GitHub 官方 CLI（`gh`）：
+
+```bash
+# 1. 安装 gh（免安装版，下载解压即可）
+#    release 地址：https://github.com/cli/cli/releases/latest
+#    下载 gh_<版本>_windows_amd64.zip，解压后把 bin/gh.exe 放到 C:\Users\Shreker\bin\
+
+# 2. 首次登录（浏览器 device flow，按提示在 github.com/login/device 输入一次性代码授权）
+HTTPS_PROXY=http://127.0.0.1:10809 gh auth login --hostname github.com --git-protocol ssh --web
+
+# 3. 触发流水线（在项目目录内执行）
+cd D:\Repos\QLProjects\ValPulse
+HTTPS_PROXY=http://127.0.0.1:10809 gh workflow run daily-valuation
+
+# 4. 查看运行状态
+HTTPS_PROXY=http://127.0.0.1:10809 gh run list --workflow=daily-valuation --limit 3
+```
+
+> 关键点：
+> - `gh` 本地直连 GitHub 会被墙，必须走代理（`HTTPS_PROXY=http://127.0.0.1:10809`，端口换成你自己的代理端口）。
+> - `gh auth login` 只需做一次，凭据保存在 `~/.config/gh`，以后直接 `gh workflow run` 即可，不用再登录。
+> - 触发后约 6 分钟跑完（抓取 + 分位 + 渲染 + 部署），完成标志是收到邮件 + Pages 看板更新。
 
 ### 出问题怎么办
 
